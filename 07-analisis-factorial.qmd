@@ -1,0 +1,413 @@
+# Análisis factorial exploratorio
+
+```{r}
+#| label: setup
+#| message: false
+library(tidyverse)
+library(knitr)
+```
+
+## Motivación aplicada
+
+A veces no queremos solo resumir variables, sino proponer factores latentes que expliquen patrones de covariación. Por ejemplo, varias medidas de rendimiento de un coche podrían reflejar dimensiones no observadas como potencia, eficiencia o comportamiento dinámico.
+
+En psicometría ocurre algo parecido: varias preguntas de un cuestionario pueden estar asociadas porque todas reflejan una dimensión no observada, como ansiedad, extraversión o satisfacción. No observamos directamente el factor; observamos variables que se mueven juntas.
+
+::: {.callout-note}
+En PCA buscamos componentes que resuman variabilidad; en análisis factorial buscamos factores latentes que expliquen patrones de covariación entre variables observadas.
+:::
+
+## PCA no siempre basta
+
+PCA transforma variables observadas en componentes que maximizan varianza total. Es una técnica descriptiva de reducción de dimensión.
+
+El análisis factorial exploratorio, en cambio, parte de una idea más fuerte: las correlaciones entre variables observadas pueden explicarse mediante un número pequeño de factores comunes. Lo que interesa no es resumir toda la varianza, sino separar:
+
+- varianza común compartida con otras variables;
+- varianza específica de cada variable;
+- error o ruido de medición.
+
+Esto hace que el análisis factorial tenga una interpretación latente más ambiciosa, pero también exige más cautela.
+
+## Variables observadas y factores latentes
+
+Supongamos que observamos $p$ variables estandarizadas $X_1,\ldots,X_p$. El modelo factorial común con $m$ factores se escribe como:
+
+$$
+X_j = \lambda_{j1}F_1 + \lambda_{j2}F_2 + \cdots + \lambda_{jm}F_m + \epsilon_j.
+$$
+
+Aquí:
+
+- $F_1,\ldots,F_m$ son factores comunes no observados;
+- $\lambda_{jk}$ es la carga de la variable $j$ en el factor $k$;
+- $\epsilon_j$ es la parte específica de la variable $j$.
+
+En forma matricial:
+
+$$
+X = \Lambda F + \epsilon,
+$$
+
+donde $\Lambda$ es la matriz de cargas factoriales.
+
+## Modelo de covarianzas
+
+La idea central no está solo en predecir cada variable, sino en explicar la matriz de covarianzas o correlaciones. Para ver de dónde sale la forma matricial, partimos del modelo:
+
+$$
+X = \Lambda F + \epsilon.
+$$
+
+Aquí $X$ es el vector de variables observadas, $F$ es el vector de factores comunes y $\epsilon$ es el vector de errores específicos:
+
+$$
+\epsilon =
+\begin{pmatrix}
+\epsilon_1\\
+\epsilon_2\\
+\vdots\\
+\epsilon_p
+\end{pmatrix}.
+$$
+
+El modelo factorial clásico asume que los errores específicos tienen media cero y varianza propia:
+
+$$
+\epsilon_j \sim \mathcal{N}(0,\psi_j).
+$$
+
+Además, se asume que los errores específicos son independientes entre sí y no están correlacionados con los factores:
+
+$$
+Cov(\epsilon_j,\epsilon_k)=0 \quad \text{si } j \neq k,
+$$
+
+$$
+Cov(F,\epsilon)=0.
+$$
+
+Por eso la matriz de covarianzas de los errores es diagonal:
+
+$$
+Cov(\epsilon)=\Psi =
+\begin{pmatrix}
+\psi_1 & 0 & \cdots & 0\\
+0 & \psi_2 & \cdots & 0\\
+\vdots & \vdots & \ddots & \vdots\\
+0 & 0 & \cdots & \psi_p
+\end{pmatrix}.
+$$
+
+Si los factores tienen matriz de covarianzas $\Phi$,
+
+$$
+Cov(F)=\Phi,
+$$
+
+entonces podemos calcular la covarianza de $X$:
+
+$$
+Cov(X)=Cov(\Lambda F+\epsilon).
+$$
+
+Usando las reglas de covarianza para transformaciones lineales:
+
+$$
+Cov(X)=Cov(\Lambda F)+Cov(\epsilon)+Cov(\Lambda F,\epsilon)+Cov(\epsilon,\Lambda F).
+$$
+
+Como factores y errores específicos se suponen no correlacionados, los términos cruzados son cero:
+
+$$
+Cov(\Lambda F,\epsilon)=0,
+$$
+
+$$
+Cov(\epsilon,\Lambda F)=0.
+$$
+
+Por tanto:
+
+$$
+\Sigma = \Lambda \Phi \Lambda^\top + \Psi.
+$$
+
+Esta ecuación es el corazón del análisis factorial: la covarianza observada se descompone en una parte común, $\Lambda \Phi \Lambda^\top$, y una parte específica, $\Psi$.
+
+Si los factores son ortogonales, $\Phi = I$, y el modelo se simplifica:
+
+$$
+\Sigma = \Lambda \Lambda^\top + \Psi.
+$$
+
+En análisis con variables estandarizadas, se suele trabajar con la matriz de correlaciones $R$:
+
+$$
+R \approx \Lambda \Lambda^\top + \Psi.
+$$
+
+## Cargas, comunalidad y unicidad
+
+La carga $\lambda_{jk}$ mide la relación entre la variable observada $X_j$ y el factor $F_k$. Si las variables y factores están estandarizados y los factores son ortogonales, la carga puede interpretarse de forma parecida a una correlación.
+
+La comunalidad de la variable $j$ es la parte de su varianza explicada por los factores comunes:
+
+$$
+h_j^2 = \lambda_{j1}^2 + \lambda_{j2}^2 + \cdots + \lambda_{jm}^2.
+$$
+
+La unicidad es la parte no explicada por los factores comunes:
+
+$$
+\psi_j = 1 - h_j^2.
+$$
+
+Una variable con comunalidad alta está bien representada por la solución factorial. Una variable con unicidad alta contiene mucha información específica o ruido que los factores no explican.
+
+## Dataset de trabajo
+
+Usamos variables numéricas de `mtcars`. El ejemplo es pequeño, así que debe interpretarse como introducción metodológica, no como una teoría definitiva sobre automóviles.
+
+```{r}
+vars <- mtcars[, c("mpg", "disp", "hp", "drat", "wt", "qsec")]
+R <- cor(vars)
+kable(round(R, 2))
+```
+
+El análisis factorial necesita correlaciones suficientes. Si las variables están casi no correlacionadas, no hay covarianza común que explicar.
+
+## Una simulación para entender factores
+
+Simulamos seis variables generadas por dos factores latentes. Las tres primeras dependen sobre todo del primer factor y las tres últimas del segundo.
+
+```{r}
+set.seed(123)
+n <- 250
+F1 <- rnorm(n)
+F2 <- rnorm(n)
+sim <- data.frame(
+  x1 = 0.85 * F1 + rnorm(n, sd = 0.35),
+  x2 = 0.75 * F1 + rnorm(n, sd = 0.45),
+  x3 = 0.70 * F1 + rnorm(n, sd = 0.50),
+  x4 = 0.80 * F2 + rnorm(n, sd = 0.40),
+  x5 = 0.75 * F2 + rnorm(n, sd = 0.45),
+  x6 = 0.65 * F2 + rnorm(n, sd = 0.55)
+)
+kable(round(cor(sim), 2))
+```
+
+En esta matriz aparecen dos bloques de correlaciones. El análisis factorial intenta recuperar esa estructura latente.
+
+```{r}
+fa_sim <- factanal(sim, factors = 2, rotation = "varimax")
+print(fa_sim$loadings, cutoff = 0.25)
+```
+
+El ejemplo muestra el patrón ideal: variables con cargas altas en un factor y bajas en el otro. Los datos reales rara vez son tan limpios.
+
+## Número de factores
+
+Elegir el número de factores es una de las decisiones más delicadas. Un primer diagnóstico es mirar autovalores de la matriz de correlaciones.
+
+```{r}
+ev <- eigen(R)$values
+tibble(indice = seq_along(ev), autovalor = ev) |>
+  ggplot(aes(indice, autovalor)) +
+  geom_line() +
+  geom_point(size = 2) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "gray50") +
+  labs(title = "Scree plot exploratorio", x = "Componente/factor", y = "Autovalor") +
+  theme_minimal()
+tibble(indice = seq_along(ev), autovalor = round(ev, 2)) |>
+  kable()
+```
+
+La regla del autovalor mayor que 1 es popular, pero débil. Debe usarse como pista, no como decisión automática.
+
+El análisis paralelo compara los autovalores observados con los que aparecerían en datos aleatorios de igual tamaño. Si `psych` está disponible, se puede calcular directamente.
+
+```{r}
+set.seed(123)
+ev_obs <- eigen(cor(vars))$values
+ev_aleatorios <- replicate(100, {
+  datos_aleatorios <- apply(vars, 2, sample)
+  eigen(cor(datos_aleatorios))$values
+})
+paralelo <- tibble(
+  indice = seq_along(ev_obs),
+  observado = ev_obs,
+  aleatorio_p95 = apply(ev_aleatorios, 1, quantile, probs = 0.95)
+) |>
+  pivot_longer(-indice, names_to = "serie", values_to = "autovalor")
+
+ggplot(paralelo, aes(indice, autovalor, color = serie)) +
+  geom_line() +
+  geom_point(size = 2) +
+  labs(title = "Análisis paralelo", x = "Factor", y = "Autovalor", color = "") +
+  theme_minimal()
+```
+
+En la práctica se combinan varios criterios:
+
+- scree plot;
+- análisis paralelo;
+- interpretabilidad;
+- comunalidades;
+- cargas cruzadas;
+- sentido aplicado del modelo.
+
+## Extracción de factores
+
+Hay varios métodos de extracción. Algunos habituales son:
+
+- **componentes principales factoriales**: aproximación descriptiva inicial;
+- **mínimos residuos**: busca reproducir la matriz de correlaciones minimizando residuos;
+- **máxima verosimilitud**: añade supuestos distribucionales y permite contrastes;
+- **ejes principales**: trabaja iterativamente con comunalidades.
+
+No todos responden exactamente a la misma función objetivo. Por eso, cuando el resultado cambia mucho entre métodos, conviene ser prudente.
+
+```{r}
+fa_minres <- psych::fa(vars, nfactors = 2, rotate = "none", fm = "minres")
+print(fa_minres$loadings, cutoff = 0.25)
+```
+
+## Rotaciones factoriales
+
+Una solución factorial no rotada puede explicar bien la matriz de correlaciones, pero ser difícil de interpretar. La rotación busca una estructura simple: variables con cargas altas en pocos factores y bajas en los demás.
+
+Matemáticamente, si $T$ es una matriz de rotación, podemos transformar las cargas:
+
+$$
+\Lambda^* = \Lambda T.
+$$
+
+La solución rotada intenta conservar la capacidad explicativa global, pero redistribuye las cargas para mejorar la interpretación.
+
+### Varimax
+
+Varimax es una rotación ortogonal. Mantiene factores no correlacionados. Su intuición es hacer que, dentro de cada factor, algunas cargas sean grandes y otras pequeñas.
+
+```{r}
+fa_varimax <- psych::fa(vars, nfactors = 2, rotate = "varimax", fm = "minres")
+print(fa_varimax$loadings, cutoff = 0.25)
+```
+
+### Oblimin
+
+Oblimin permite que los factores estén correlacionados. Esto puede ser más realista en ciencias sociales, salud o comportamiento: dos dimensiones latentes pueden estar relacionadas.
+
+```{r}
+fa_oblimin <- psych::fa(vars, nfactors = 2, rotate = "oblimin", fm = "minres")
+print(fa_oblimin$loadings, cutoff = 0.25)
+kable(round(fa_oblimin$Phi, 3))
+```
+
+Si los factores oblicuos están muy correlacionados, quizá no son dimensiones tan separadas. Si no están correlacionados, una rotación ortogonal puede ser suficiente.
+
+## Cargas cruzadas
+
+Una carga cruzada aparece cuando una variable carga de forma relevante en más de un factor. Por ejemplo, si una variable tiene carga 0.45 en el factor 1 y 0.42 en el factor 2, no representa limpiamente una sola dimensión.
+
+Las cargas cruzadas pueden indicar:
+
+- una variable conceptualmente ambigua;
+- demasiados pocos factores;
+- demasiados factores;
+- una muestra insuficiente;
+- una estructura latente menos clara de lo esperado.
+
+No conviene forzar nombres de factores si las cargas no sostienen una interpretación simple.
+
+## Residuos del modelo
+
+Una forma de diagnosticar el ajuste es comparar la matriz de correlaciones observada con la reproducida por el modelo factorial.
+
+```{r}
+fa_base <- factanal(vars, factors = 2, rotation = "varimax")
+L <- as.matrix(fa_base$loadings)
+Psi <- diag(fa_base$uniquenesses)
+R_reproducida <- L %*% t(L) + Psi
+residuos <- R - R_reproducida
+kable(round(residuos, 3))
+```
+
+Residuos grandes sugieren que la solución factorial no reproduce bien algunas asociaciones entre variables.
+
+## Scores factoriales
+
+Los scores estiman la posición de cada individuo en los factores. No son observaciones directas del factor latente, sino estimaciones dependientes del modelo.
+
+```{r}
+fa_scores <- factanal(vars, factors = 2, scores = "regression", rotation = "varimax")
+head(round(fa_scores$scores, 2)) |>
+  kable()
+```
+
+Una forma esquemática de entender los scores por regresión es:
+
+$$
+\hat{F} = X B,
+$$
+
+donde $B$ es una matriz de pesos calculada a partir de cargas, unicidades y correlaciones. Los scores pueden servir para gráficos, clustering posterior o perfiles, pero no deben confundirse con medidas directas del factor.
+
+```{r}
+as_tibble(fa_scores$scores, rownames = "modelo") |>
+  ggplot(aes(Factor1, Factor2, label = modelo)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray60") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray60") +
+  geom_point(size = 2, alpha = 0.8) +
+  geom_text(nudge_y = 0.08, size = 3) +
+  labs(title = "Scores factoriales en mtcars", x = "Factor 1", y = "Factor 2") +
+  theme_minimal()
+```
+
+## Diferencias entre PCA y análisis factorial
+
+| Aspecto | PCA | Análisis factorial |
+|---|---|---|
+| Objetivo | Resumir varianza total | Explicar covarianza común |
+| Variables nuevas | Componentes observables como combinaciones lineales | Factores latentes estimados |
+| Varianza específica | Forma parte de la varianza resumida | Se separa en unicidad/error |
+| Modelo estadístico | Descriptivo geométrico | Modelo de covarianzas |
+| Interpretación | Ejes de máxima varianza | Dimensiones latentes hipotéticas |
+
+PCA puede ser suficiente si queremos una representación compacta. FA tiene más sentido si sostenemos que existen dimensiones latentes que generan las correlaciones observadas.
+
+## Diagnóstico y limitaciones
+
+El análisis factorial necesita correlaciones suficientes, tamaño muestral razonable y una solución interpretable. En datasets pequeños como `mtcars`, los resultados sirven para aprender el procedimiento, no para sostener una teoría fuerte.
+
+Limitaciones importantes:
+
+- el número de factores no es obvio;
+- la rotación cambia la interpretación;
+- los factores no son únicos en sentido absoluto;
+- las cargas pueden depender mucho de la muestra;
+- variables mal medidas producen factores poco fiables;
+- un factor con nombre atractivo no garantiza una variable latente real.
+
+## Errores frecuentes
+
+- Llamar factores latentes a componentes principales sin justificarlo.
+- Retener factores solo porque el autovalor supera 1.
+- Ignorar cargas cruzadas.
+- Interpretar factores con nombres atractivos pero poco respaldados.
+- Presentar scores factoriales como si fueran observaciones directas.
+- Usar análisis factorial con variables casi no correlacionadas.
+- No informar método de extracción y rotación.
+
+## Resumen del capítulo
+
+El análisis factorial exploratorio busca factores latentes que expliquen covarianza común. Su modelo separa cargas, comunalidades, unicidades y errores específicos. La interpretación depende del número de factores, método de extracción, rotación, residuos, cargas cruzadas y sentido aplicado de las variables.
+
+## Ejercicios propuestos
+
+1. Compara una solución de 1 y 2 factores en `mtcars`.
+2. Explica qué variables cargan más en cada factor.
+3. Calcula comunalidades y unicidades de una solución factorial.
+4. Compara una rotación varimax con una oblimin si tienes `psych` instalado.
+5. Describe una situación aplicada donde PCA sería suficiente y otra donde FA tendría más sentido.
+6. Simula seis variables generadas por dos factores y comprueba si el análisis factorial recupera la estructura.

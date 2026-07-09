@@ -1,0 +1,95 @@
+# Introducción conceptual
+
+```{r}
+#| label: setup
+#| message: false
+library(tidyverse)
+library(knitr)
+```
+
+## Motivación aplicada
+
+Supongamos que tenemos varias medidas de coches: consumo, cilindrada, potencia, peso y aceleración. Una pregunta sencilla es si algunos coches se parecen entre sí. Otra, algo distinta, es si esas medidas ayudan a distinguir coches automáticos y manuales. Ambas usan las mismas columnas, pero no responden al mismo problema.
+
+## La matriz de datos
+
+La mayoría de técnicas partirán de una matriz $X$ con $n$ filas y $p$ columnas. Las filas son individuos u observaciones; las columnas son variables.
+
+Si las variables son numéricas, podemos imaginar cada fila como un punto en un espacio de $p$ dimensiones. Si las variables son categóricas, esa geometría directa deja de ser suficiente y necesitamos otras formas de representar perfiles o asociaciones.
+
+## Tipos de variables
+
+Distinguiremos cuatro tipos frecuentes:
+
+- **numéricas**, como longitud, peso o renta;
+- **categóricas nominales**, como especie, sexo o tipo de transmisión;
+- **ordinales**, como niveles de satisfacción;
+- **mixtas**, cuando una misma tabla combina variables numéricas y categóricas.
+
+La elección de técnica depende de esta clasificación. Aplicar PCA directamente a categorías codificadas como 1, 2 y 3 puede introducir distancias artificiales.
+
+## Datos como puntos en un espacio
+
+Cuando las variables son numéricas, la similitud puede expresarse mediante distancias. Dos individuos están próximos si sus valores son parecidos en las variables consideradas.
+
+```{r}
+data(mtcars)
+mtcars |>
+  rownames_to_column("modelo") |>
+  mutate(transmision = factor(am, labels = c("automatico", "manual"))) |>
+  ggplot(aes(wt, mpg, color = transmision)) +
+  geom_point(size = 2, alpha = 0.85) +
+  labs(
+    title = "mtcars: dos variables de una tabla multivariante",
+    x = "Peso",
+    y = "Millas por galón",
+    color = "Transmisión"
+  ) +
+  theme_minimal()
+```
+
+La figura solo muestra dos variables. El dataset tiene más medidas, de modo que cualquier conclusión visual debe entenderse como una proyección parcial.
+
+## Similitud, variabilidad y estructura
+
+Una estructura multivariante puede aparecer como proximidad entre individuos, covariación entre variables, asociación entre categorías o separación entre clases. En todos los casos hay una decisión previa: qué diferencias se consideran relevantes.
+
+Por ejemplo, en `mtcars`, la cilindrada y el peso están en escalas muy distintas. Si calculamos distancias sin escalar, las variables con mayor magnitud pueden dominar el resultado.
+
+```{r}
+tibble(
+  variable = c("mpg", "disp", "hp", "wt"),
+  desviacion_tipica = round(sapply(mtcars[, c("mpg", "disp", "hp", "wt")], sd), 2)
+) |>
+  kable()
+```
+
+## Preguntas típicas
+
+Las preguntas que guiarán el curso son:
+
+- ¿qué individuos se parecen?
+- ¿qué variables se mueven juntas?
+- ¿se puede representar el conjunto en pocas dimensiones?
+- ¿hay asociación entre categorías?
+- ¿podemos clasificar nuevos individuos?
+
+Estas preguntas no son intercambiables. Una técnica puede ser correcta matemáticamente y aun así no responder la pregunta aplicada.
+
+## Errores frecuentes
+
+- Empezar por una función de R antes de formular la pregunta.
+- Mezclar variables activas y variables de interpretación sin distinguirlas.
+- No escalar variables numéricas con unidades muy diferentes.
+- Interpretar una proyección bidimensional como si no perdiera información.
+- Confundir asociación, separación visual y causalidad.
+
+## Resumen del capítulo
+
+Una tabla multivariante puede verse como una colección de individuos descritos por varias variables. El tipo de variables y la pregunta aplicada determinan qué representación tiene sentido construir.
+
+## Ejercicios propuestos
+
+1. En `mtcars`, identifica variables numéricas que podrían necesitar escalado antes de calcular distancias.
+2. En `mtcars`, formula una pregunta no supervisada y otra supervisada.
+3. Explica qué se pierde al mirar solo dos variables de un dataset con cuatro o más columnas.

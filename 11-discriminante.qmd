@@ -1,0 +1,123 @@
+# Análisis discriminante
+
+```{r}
+#| label: setup
+#| message: false
+library(tidyverse)
+library(knitr)
+library(MASS)
+```
+
+## Motivación aplicada
+
+En `iris`, la especie es conocida. La pregunta ya no es si existen grupos, sino si podemos clasificar nuevas flores a partir de sus medidas.
+
+::: {.callout-warning}
+En clasificación supervisada no basta con separar visualmente los grupos: hay que estimar error de predicción y pensar qué consecuencias tienen los errores.
+:::
+
+## Clasificación supervisada
+
+La clasificación supervisada usa una variable respuesta categórica conocida. A diferencia del clustering, las clases existen antes del modelo.
+
+## Train/test split
+
+Separamos entrenamiento y test para estimar rendimiento fuera de muestra.
+
+```{r}
+set.seed(123)
+n <- nrow(iris)
+idx <- sample(seq_len(n), size = round(0.7 * n))
+train <- iris[idx, ]
+test <- iris[-idx, ]
+kable(table(train$Species), col.names = c("Especie", "Entrenamiento"))
+kable(table(test$Species), col.names = c("Especie", "Test"))
+```
+
+## LDA
+
+LDA busca combinaciones lineales que separen clases suponiendo matrices de covarianza iguales. Esto genera fronteras lineales y probabilidades posteriores.
+
+```{r}
+lda_fit <- lda(Species ~ Sepal.Length + Sepal.Width + Petal.Length + Petal.Width, data = train)
+lda_fit
+pred_lda <- predict(lda_fit, newdata = test)
+tab_lda <- table(predicho = pred_lda$class, observado = test$Species)
+kable(tab_lda)
+tibble(accuracy = mean(pred_lda$class == test$Species)) |>
+  kable(digits = 3)
+```
+
+## Matriz de confusión y métricas
+
+La accuracy es la proporción de aciertos. En problemas binarios también importan sensibilidad y especificidad.
+
+```{r}
+accuracy <- sum(diag(tab_lda)) / sum(tab_lda)
+tibble(accuracy = accuracy) |>
+  kable(digits = 3)
+```
+
+Para varias clases, se pueden calcular sensibilidades por clase:
+
+```{r}
+sensibilidad_clase <- diag(tab_lda) / colSums(tab_lda)
+tibble(clase = names(sensibilidad_clase), sensibilidad = round(sensibilidad_clase, 3)) |>
+  kable()
+```
+
+## QDA
+
+QDA permite matrices de covarianza distintas por clase. Sus fronteras pueden ser cuadráticas, pero el modelo estima más parámetros y puede sobreajustar con muestras pequeñas.
+
+```{r}
+qda_fit <- qda(Species ~ Sepal.Length + Sepal.Width + Petal.Length + Petal.Width, data = train)
+pred_qda <- predict(qda_fit, newdata = test)
+tab_qda <- table(predicho = pred_qda$class, observado = test$Species)
+kable(tab_qda)
+tibble(accuracy = mean(pred_qda$class == test$Species)) |>
+  kable(digits = 3)
+```
+
+## Análisis canónico discriminante
+
+LDA también produce ejes discriminantes. A diferencia de PCA, estos ejes usan la etiqueta de clase y buscan separación, no máxima varianza total.
+
+```{r}
+lda_scores <- predict(lda_fit)$x
+as_tibble(lda_scores) |>
+  mutate(Species = train$Species) |>
+  ggplot(aes(LD1, LD2, color = Species)) +
+  geom_point(size = 2, alpha = 0.85) +
+  labs(title = "Ejes discriminantes en entrenamiento", color = "Especie") +
+  theme_minimal()
+```
+
+## Comparación LDA/QDA
+
+LDA es más estable cuando el supuesto de covarianzas similares es razonable. QDA es más flexible, pero necesita más datos por clase. La comparación debe hacerse con test o validación cruzada, no solo con error aparente.
+
+## Relación con PCA
+
+PCA ignora la clase y puede servir como preprocesamiento. LDA usa la clase para encontrar direcciones de separación. Por eso un componente con mucha varianza no necesariamente discrimina bien.
+
+## Limitaciones
+
+LDA y QDA dependen de supuestos sobre distribución y covarianzas. También son sensibles a variables irrelevantes, outliers y desequilibrio de clases. En aplicaciones reales, la consecuencia de cada tipo de error puede ser más importante que la accuracy global.
+
+## Errores frecuentes
+
+- Evaluar el modelo con los mismos datos usados para entrenar.
+- Confundir clustering con clasificación supervisada.
+- Elegir el modelo con mayor accuracy sin mirar matriz de confusión.
+- Ignorar sensibilidad y especificidad en problemas donde los errores no cuestan lo mismo.
+
+## Resumen del capítulo
+
+El análisis discriminante construye reglas de clasificación para clases conocidas. Su evaluación requiere separación entrenamiento/test, matriz de confusión y reflexión sobre el coste de los errores.
+
+## Ejercicios propuestos
+
+1. Repite el split con otra semilla y compara resultados.
+2. Ajusta LDA usando solo dos variables de `iris`.
+3. Explica cuándo preferirías LDA frente a QDA.

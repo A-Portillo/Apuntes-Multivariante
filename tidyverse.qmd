@@ -1,0 +1,549 @@
+# Guía rápida de tidyverse y dplyr
+
+```{r}
+#| label: setup
+#| message: false
+library(tidyverse)
+library(knitr)
+```
+
+## Objetivo del capítulo
+
+En los apuntes usamos mucho `tidyverse` porque permite escribir análisis de datos como una secuencia legible de transformaciones. Este capítulo resume las funciones más frecuentes, especialmente las que aparecen en los ejemplos del libro.
+
+La idea central es trabajar con tablas y encadenar pasos:
+
+1. elegir variables;
+2. filtrar filas;
+3. crear o transformar columnas;
+4. agrupar;
+5. resumir;
+6. ordenar;
+7. representar o mostrar resultados.
+
+Usaremos `mtcars` como tabla principal.
+
+```{r}
+coches <- mtcars |>
+  as_tibble(rownames = "modelo") |>
+  mutate(
+    transmision = factor(am, labels = c("automatico", "manual")),
+    cilindros = factor(cyl)
+  )
+
+coches |>
+  select(modelo, mpg, disp, hp, wt, transmision, cilindros) |>
+  head(6) |>
+  kable()
+```
+
+## La tubería
+
+La tubería `|>` lee el código de izquierda a derecha. El resultado de una línea entra como primer argumento de la función siguiente.
+
+```{r}
+coches |>
+  select(modelo, mpg, wt, transmision) |>
+  filter(transmision == "manual") |>
+  arrange(desc(mpg)) |>
+  head(5) |>
+  kable()
+```
+
+Sin tuberías, el mismo código sería más anidado y menos legible:
+
+```{r}
+resultado <- head(
+  arrange(
+    filter(
+      select(coches, modelo, mpg, wt, transmision),
+      transmision == "manual"
+    ),
+    desc(mpg)
+  ),
+  5
+)
+
+kable(resultado)
+```
+
+En estos apuntes usamos principalmente `|>`, la tubería nativa de R. También existe `%>%`, del paquete `magrittr`, muy común en código tidyverse más antiguo. Para la mayoría de usos básicos, ambas permiten escribir cadenas de transformación similares.
+
+## `select()`: elegir columnas
+
+`select()` conserva, reordena o descarta variables.
+
+```{r}
+coches |>
+  select(modelo, mpg, hp, wt) |>
+  head(5) |>
+  kable()
+```
+
+También se pueden usar ayudantes de selección:
+
+```{r}
+coches |>
+  select(modelo, starts_with("d"), ends_with("s")) |>
+  head(5) |>
+  kable()
+```
+
+Para quitar columnas se usa el signo menos.
+
+```{r}
+coches |>
+  select(-modelo, -transmision, -cilindros) |>
+  head(5) |>
+  kable()
+```
+
+En análisis multivariante, `select()` es útil para separar variables activas y suplementarias. Por ejemplo, podemos construir una matriz numérica activa y guardar la transmisión para interpretar después.
+
+```{r}
+X <- coches |>
+  select(mpg, disp, hp, wt, qsec)
+
+etiqueta <- coches |>
+  pull(transmision)
+
+kable(head(X, 5))
+```
+
+## `filter()`: filtrar filas
+
+`filter()` conserva observaciones que cumplen una condición lógica.
+
+```{r}
+coches |>
+  filter(mpg > 25) |>
+  select(modelo, mpg, hp, wt, transmision) |>
+  kable()
+```
+
+Se pueden combinar condiciones con `&` y `|`.
+
+```{r}
+coches |>
+  filter(mpg > 20, wt < 3) |>
+  select(modelo, mpg, wt, cilindros, transmision) |>
+  kable()
+```
+
+La coma dentro de `filter()` equivale a una condición conjunta: deben cumplirse todas las condiciones. Para alternativas usamos `|`.
+
+```{r}
+coches |>
+  filter(cilindros == "4" | transmision == "manual") |>
+  count(cilindros, transmision) |>
+  kable()
+```
+
+## `arrange()`: ordenar filas
+
+`arrange()` ordena una tabla según una o varias columnas.
+
+```{r}
+coches |>
+  arrange(mpg) |>
+  select(modelo, mpg, wt, hp) |>
+  head(5) |>
+  kable()
+```
+
+Para ordenar de mayor a menor se usa `desc()`.
+
+```{r}
+coches |>
+  arrange(desc(hp)) |>
+  select(modelo, hp, mpg, wt) |>
+  head(5) |>
+  kable()
+```
+
+## `mutate()`: crear columnas
+
+`mutate()` añade nuevas variables o modifica variables existentes.
+
+```{r}
+coches |>
+  mutate(
+    peso_kg_aprox = wt * 1000 * 0.453592,
+    consumo_relativo = mpg / mean(mpg)
+  ) |>
+  select(modelo, wt, peso_kg_aprox, mpg, consumo_relativo) |>
+  head(5) |>
+  kable(digits = 2)
+```
+
+Es frecuente usar `mutate()` para crear factores interpretables a partir de códigos numéricos.
+
+```{r}
+coches |>
+  mutate(
+    tipo_motor = factor(vs, labels = c("V", "Straight")),
+    potencia = if_else(hp >= median(hp), "alta", "baja")
+  ) |>
+  count(tipo_motor, potencia) |>
+  kable()
+```
+
+## `case_when()`: crear categorías con varias reglas
+
+`case_when()` es útil cuando una nueva variable depende de varias condiciones.
+
+```{r}
+coches |>
+  mutate(
+    perfil_consumo = case_when(
+      mpg >= 25 ~ "eficiente",
+      mpg >= 18 ~ "intermedio",
+      TRUE ~ "alto consumo"
+    )
+  ) |>
+  count(perfil_consumo) |>
+  kable()
+```
+
+El caso `TRUE ~ ...` funciona como opción por defecto.
+
+## `summarise()` y `group_by()`: resumir
+
+`summarise()` reduce una tabla a estadísticas resumen.
+
+```{r}
+coches |>
+  summarise(
+    n = n(),
+    media_mpg = mean(mpg),
+    sd_mpg = sd(mpg),
+    media_hp = mean(hp)
+  ) |>
+  kable(digits = 2)
+```
+
+Con `group_by()` el resumen se calcula por grupos.
+
+```{r}
+coches |>
+  group_by(transmision) |>
+  summarise(
+    n = n(),
+    media_mpg = mean(mpg),
+    media_hp = mean(hp),
+    media_wt = mean(wt),
+    .groups = "drop"
+  ) |>
+  kable(digits = 2)
+```
+
+Este patrón aparece mucho al interpretar clusters: primero asignamos una etiqueta de grupo y después calculamos medias por grupo.
+
+```{r}
+set.seed(123)
+clusters <- coches |>
+  select(mpg, disp, hp, wt) |>
+  scale() |>
+  kmeans(centers = 3, nstart = 25)
+
+coches |>
+  mutate(cluster = factor(clusters$cluster)) |>
+  group_by(cluster) |>
+  summarise(
+    n = n(),
+    mpg = mean(mpg),
+    disp = mean(disp),
+    hp = mean(hp),
+    wt = mean(wt),
+    .groups = "drop"
+  ) |>
+  kable(digits = 2)
+```
+
+## `count()`: contar combinaciones
+
+`count()` es una abreviatura de `group_by()` seguido de `summarise(n = n())`.
+
+```{r}
+coches |>
+  count(cilindros, transmision) |>
+  kable()
+```
+
+Puede ordenarse por frecuencia:
+
+```{r}
+coches |>
+  count(cilindros, transmision, sort = TRUE) |>
+  kable()
+```
+
+En capítulos de correspondencias y MCA usamos con frecuencia tablas de conteos porque la información categórica se resume mediante frecuencias.
+
+## `across()`: aplicar lo mismo a varias columnas
+
+`across()` permite aplicar una función a varias variables dentro de `summarise()` o `mutate()`.
+
+```{r}
+coches |>
+  summarise(
+    across(c(mpg, disp, hp, wt), mean)
+  ) |>
+  kable(digits = 2)
+```
+
+También podemos combinar `group_by()` y `across()`.
+
+```{r}
+coches |>
+  group_by(transmision) |>
+  summarise(
+    across(c(mpg, disp, hp, wt), mean),
+    .groups = "drop"
+  ) |>
+  kable(digits = 2)
+```
+
+Para escalar varias variables dentro de una tabla, puede usarse:
+
+```{r}
+coches_escalados <- coches |>
+  mutate(
+    across(c(mpg, disp, hp, wt), function(x) as.numeric(scale(x)))
+  )
+
+coches_escalados |>
+  select(modelo, mpg, disp, hp, wt) |>
+  head(5) |>
+  kable(digits = 2)
+```
+
+Para análisis multivariante suele ser más claro construir directamente la matriz escalada con `scale()`, pero `across()` es cómodo cuando queremos conservar la tabla completa.
+
+## `pull()`: extraer una columna como vector
+
+`pull()` extrae una columna de una tabla. Es útil cuando una función espera un vector.
+
+```{r}
+transmision <- coches |>
+  pull(transmision)
+
+table(transmision) |>
+  kable(col.names = c("Transmisión", "Frecuencia"))
+```
+
+En los apuntes aparece esta idea al guardar una variable suplementaria, por ejemplo una etiqueta externa para interpretar clusters o ejes factoriales.
+
+## `slice()`: elegir filas por posición
+
+`slice()` selecciona filas por posición. Algunas variantes útiles son `slice_head()`, `slice_max()` y `slice_sample()`.
+
+```{r}
+coches |>
+  slice_head(n = 4) |>
+  select(modelo, mpg, hp, wt) |>
+  kable()
+```
+
+```{r}
+coches |>
+  slice_max(hp, n = 5) |>
+  select(modelo, hp, mpg, wt) |>
+  kable()
+```
+
+```{r}
+set.seed(42)
+coches |>
+  slice_sample(n = 5) |>
+  select(modelo, mpg, hp, wt, transmision) |>
+  kable()
+```
+
+## `pivot_longer()`: formato largo
+
+Muchas gráficas con `ggplot2` funcionan mejor en formato largo: una columna indica la variable y otra el valor.
+
+```{r}
+coches_largo <- coches |>
+  select(modelo, transmision, mpg, hp, wt) |>
+  pivot_longer(
+    cols = c(mpg, hp, wt),
+    names_to = "variable",
+    values_to = "valor"
+  )
+
+coches_largo |>
+  head(8) |>
+  kable()
+```
+
+Esto permite hacer una misma gráfica para varias variables.
+
+```{r}
+coches_largo |>
+  ggplot(aes(transmision, valor, fill = transmision)) +
+  geom_boxplot(alpha = 0.75, show.legend = FALSE) +
+  facet_wrap(~ variable, scales = "free_y") +
+  labs(x = "Transmisión", y = "Valor") +
+  theme_minimal()
+```
+
+## `pivot_wider()`: formato ancho
+
+`pivot_wider()` hace la operación inversa: reparte valores de una columna en varias columnas.
+
+```{r}
+resumen_largo <- coches |>
+  group_by(transmision) |>
+  summarise(
+    mpg = mean(mpg),
+    hp = mean(hp),
+    wt = mean(wt),
+    .groups = "drop"
+  ) |>
+  pivot_longer(
+    cols = c(mpg, hp, wt),
+    names_to = "variable",
+    values_to = "media"
+  )
+
+resumen_largo |>
+  pivot_wider(
+    names_from = transmision,
+    values_from = media
+  ) |>
+  kable(digits = 2)
+```
+
+## `left_join()`: unir tablas
+
+Los `join` combinan tablas usando una o varias claves. En análisis aplicado esto aparece al unir resultados de un modelo con información original.
+
+```{r}
+coordenadas_pca <- coches |>
+  select(mpg, disp, hp, wt) |>
+  prcomp(center = TRUE, scale. = TRUE) |>
+  pluck("x") |>
+  as_tibble() |>
+  select(PC1, PC2) |>
+  mutate(modelo = coches$modelo)
+
+etiquetas <- coches |>
+  select(modelo, transmision, cilindros)
+
+coordenadas_pca |>
+  left_join(etiquetas, by = "modelo") |>
+  head(6) |>
+  kable(digits = 2)
+```
+
+`left_join(x, y, by = "clave")` conserva todas las filas de `x` y añade las columnas de `y` cuando encuentra coincidencias.
+
+## `ggplot()` dentro de pipelines
+
+`ggplot2` también encaja bien con tuberías. Primero transformamos la tabla y luego la enviamos a `ggplot()`.
+
+```{r}
+coches |>
+  mutate(peso = if_else(wt >= median(wt), "pesado", "ligero")) |>
+  ggplot(aes(wt, mpg, color = peso, shape = transmision)) +
+  geom_point(size = 2.4, alpha = 0.85) +
+  labs(
+    title = "Consumo y peso en mtcars",
+    x = "Peso",
+    y = "Millas por galón",
+    color = "Peso relativo",
+    shape = "Transmisión"
+  ) +
+  theme_minimal()
+```
+
+Una regla práctica: si una gráfica necesita una tabla transformada, conviene preparar esa tabla con `select()`, `filter()`, `mutate()` o `summarise()` antes de llamar a `ggplot()`.
+
+## Patrones que aparecen en los apuntes
+
+### Preparar variables activas
+
+```{r}
+X <- coches |>
+  select(mpg, disp, hp, wt, qsec) |>
+  scale()
+
+dim(X)
+```
+
+### Añadir resultados de un modelo
+
+```{r}
+set.seed(321)
+km <- kmeans(X, centers = 3, nstart = 25)
+
+coches_con_cluster <- coches |>
+  mutate(cluster = factor(km$cluster))
+
+coches_con_cluster |>
+  select(modelo, mpg, hp, wt, cluster) |>
+  head(8) |>
+  kable()
+```
+
+### Resumir perfiles de grupo
+
+```{r}
+coches_con_cluster |>
+  group_by(cluster) |>
+  summarise(
+    n = n(),
+    across(c(mpg, disp, hp, wt), mean),
+    .groups = "drop"
+  ) |>
+  kable(digits = 2)
+```
+
+### Comparar con una variable suplementaria
+
+```{r}
+coches_con_cluster |>
+  count(cluster, transmision) |>
+  kable()
+```
+
+### Preparar datos para un mapa factorial
+
+```{r}
+pca <- coches |>
+  select(mpg, disp, hp, wt) |>
+  prcomp(center = TRUE, scale. = TRUE)
+
+scores <- pca$x[, 1:2] |>
+  as_tibble() |>
+  mutate(transmision = coches$transmision)
+
+scores |>
+  ggplot(aes(PC1, PC2, color = transmision)) +
+  geom_point(size = 2.4, alpha = 0.85) +
+  labs(color = "Transmisión") +
+  theme_minimal()
+```
+
+## Errores frecuentes
+
+- Usar `select()` cuando se quieren filtrar filas; para filas se usa `filter()`.
+- Olvidar que `filter()` necesita condiciones lógicas, como `mpg > 20`.
+- Crear una variable con `mutate()` pero no guardar el resultado ni continuar la tubería.
+- Resumir después de `group_by()` y olvidar `.groups = "drop"` cuando se quiere una tabla sin agrupación.
+- Tratar códigos categóricos como números sin convertirlos a `factor`.
+- Perder una variable suplementaria antes de usarla para interpretar resultados.
+
+## Resumen del capítulo
+
+El flujo tidyverse se basa en transformar tablas de forma explícita y legible. Para los apuntes, las funciones más importantes son `select()`, `filter()`, `mutate()`, `arrange()`, `group_by()`, `summarise()`, `count()`, `across()`, `pivot_longer()`, `pivot_wider()`, `pull()` y los `join`. La tubería `|>` permite encadenarlas como una receta de análisis.
+
+## Ejercicios propuestos
+
+1. Con `mtcars`, crea una tabla con `modelo`, `mpg`, `hp`, `wt` y una variable categórica que indique si el coche es ligero o pesado.
+2. Calcula medias de `mpg`, `hp` y `wt` por tipo de transmisión usando `group_by()` y `summarise()`.
+3. Convierte `mpg`, `hp` y `wt` a formato largo con `pivot_longer()` y representa un boxplot por variable.
+4. Ajusta k-means con tres grupos sobre variables escaladas de `mtcars` y resume los perfiles con `across()`.
+5. Explica qué diferencia hay entre usar una variable como activa y conservarla como suplementaria.

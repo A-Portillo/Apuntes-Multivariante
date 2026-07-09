@@ -1,0 +1,69 @@
+project:
+  type: book
+  output-dir: docs
+
+book:
+  title: "Técnicas Multivariantes Aplicadas con R"
+  subtitle: "Apuntes de la asignatura"
+  author: "Adrián Portillo"
+  date: today
+  cover-image: cover.png
+
+  chapters:
+    - index.qmd
+    - 00-presentacion.qmd
+    - 01-introduccion.qmd
+
+    - part: "Bloque 1. Análisis cluster"
+      chapters:
+        - 02-distancias.qmd
+        - 03-clustering-jerarquico.qmd
+        - 04-kmeans-pam.qmd
+        - 05-interpretacion-clusters.qmd
+
+    - part: "Bloque 2. Reducción de dimensión"
+      chapters:
+        - 06-pca.qmd
+        - 07-analisis-factorial.qmd
+
+    - part: "Bloque 3. Análisis de correspondencias y datos mixtos"
+      chapters:
+        - 09-correspondencias.qmd
+        - 10-mca.qmd
+        - 08-famd.qmd
+
+    - part: "Bloque 4. Análisis discriminante"
+      chapters:
+        - 11-discriminante.qmd
+
+    - part: "Casos integradores"
+      chapters:
+        - 12-casos-integradores.qmd
+
+    - part: "Apéndice práctico"
+      chapters:
+        - tidyverse.qmd
+
+    - references.qmd
+
+bibliography: references.bib
+
+format:
+  html:
+    theme:
+      light: cosmo
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-tools: true
+    code-copy: true
+    fig-align: center
+
+execute:
+  echo: true
+  warning: false
+  message: false
+  freeze: auto
+
+lang: es

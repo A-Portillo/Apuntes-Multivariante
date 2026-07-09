@@ -1,0 +1,394 @@
+# Análisis de correspondencias simple
+
+```{r}
+#| label: setup
+#| message: false
+library(tidyverse)
+library(knitr)
+```
+
+## Motivación aplicada
+
+Cuando tenemos dos variables categóricas, una tabla de contingencia muestra cuántos individuos aparecen en cada combinación. Por ejemplo, en `Titanic` podemos cruzar clase del pasajero y supervivencia.
+
+Una tabla puede leerse directamente, pero cuando hay muchas filas o columnas cuesta ver qué categorías se asocian. El análisis de correspondencias simple, CA, transforma la tabla en un mapa factorial donde filas y columnas se representan como puntos.
+
+::: {.callout-warning}
+El análisis de correspondencias representa desviaciones respecto a la independencia, no relaciones causales ni frecuencias brutas.
+:::
+
+## De una tabla a una pregunta geométrica
+
+Supongamos una tabla de contingencia $N=(n_{ij})$ con $I$ filas y $J$ columnas. El total de la tabla es:
+
+$$
+n = \sum_{i=1}^{I}\sum_{j=1}^{J} n_{ij}.
+$$
+
+La matriz de frecuencias relativas es:
+
+$$
+P = \frac{1}{n}N.
+$$
+
+La masa de la fila $i$ es:
+
+$$
+r_i = \sum_{j=1}^{J} p_{ij},
+$$
+
+y la masa de la columna $j$ es:
+
+$$
+c_j = \sum_{i=1}^{I} p_{ij}.
+$$
+
+Las masas son pesos. Una fila con mucha frecuencia total tiene más peso en la geometría que una fila rara.
+
+## Tabla de contingencia
+
+Usamos `Titanic` para estudiar asociación entre clase y supervivencia.
+
+```{r}
+titanic <- as.data.frame(Titanic)
+tab <- xtabs(Freq ~ Class + Survived, data = titanic)
+kable(tab)
+kable(round(prop.table(tab), 3))
+```
+
+La tabla absoluta permite ver tamaños. La tabla relativa permite leer proporciones sobre el total.
+
+## Independencia
+
+Dos variables categóricas son independientes si la probabilidad conjunta se factoriza como producto de marginales:
+
+$$
+p_{ij}=r_i c_j.
+$$
+
+Bajo independencia, el valor esperado de la celda $(i,j)$ es:
+
+$$
+e_{ij}=\frac{n_{i+}n_{+j}}{n}.
+$$
+
+En CA, lo importante no son solo las frecuencias observadas, sino cuánto se apartan de lo que esperaríamos bajo independencia.
+
+```{r}
+chi <- chisq.test(tab)
+chi
+kable(round(chi$expected, 1))
+```
+
+## Residuos $\chi^2$
+
+Los residuos estandarizados comparan observado y esperado:
+
+$$
+res_{ij}=\frac{n_{ij}-e_{ij}}{\sqrt{e_{ij}}}.
+$$
+
+Residuos positivos indican más casos de los esperados bajo independencia; residuos negativos indican menos.
+
+```{r}
+kable(round(chi$residuals, 2))
+```
+
+Estos residuos son una primera lectura local de la asociación. CA construye una representación global de esas desviaciones.
+
+## Perfiles fila y columna
+
+El perfil fila de la fila $i$ es la distribución condicional sobre columnas:
+
+$$
+f_{ij}=\frac{p_{ij}}{r_i}.
+$$
+
+El perfil columna de la columna $j$ es:
+
+$$
+g_{ij}=\frac{p_{ij}}{c_j}.
+$$
+
+```{r}
+perfiles_fila <- prop.table(tab, 1)
+perfiles_col <- prop.table(tab, 2)
+masas_fila <- prop.table(rowSums(tab))
+masas_col <- prop.table(colSums(tab))
+
+kable(round(perfiles_fila, 3), caption = "Perfiles fila")
+kable(round(perfiles_col, 3), caption = "Perfiles columna")
+tibble(fila = names(masas_fila), masa = round(as.numeric(masas_fila), 3)) |>
+  kable(caption = "Masas fila")
+tibble(columna = names(masas_col), masa = round(as.numeric(masas_col), 3)) |>
+  kable(caption = "Masas columna")
+```
+
+Las filas se comparan por sus perfiles, no por sus frecuencias absolutas. Dos filas son parecidas si distribuyen sus frecuencias entre columnas de forma parecida.
+
+## Distancia $\chi^2$ entre perfiles
+
+La distancia $\chi^2$ entre dos perfiles fila $i$ e $i'$ es:
+
+$$
+d^2(i,i')=
+\sum_{j=1}^{J}\frac{1}{c_j}
+\left(
+\frac{p_{ij}}{r_i}
+-
+\frac{p_{i'j}}{r_{i'}}
+\right)^2.
+$$
+
+Las columnas con masa pequeña pesan más porque diferencias en categorías raras son más informativas geométricamente. Esto también implica una advertencia: categorías raras pueden generar puntos extremos.
+
+Para columnas se define una distancia análoga ponderando por masas fila:
+
+$$
+d^2(j,j')=
+\sum_{i=1}^{I}\frac{1}{r_i}
+\left(
+\frac{p_{ij}}{c_j}
+-
+\frac{p_{ij'}}{c_{j'}}
+\right)^2.
+$$
+
+```{r}
+P <- tab / sum(tab)
+r <- rowSums(P)
+c <- colSums(P)
+perfil_f <- sweep(P, 1, r, "/")
+
+chi2_dist_rows <- function(profiles, masses_col) {
+  D <- matrix(0, nrow(profiles), nrow(profiles), dimnames = list(rownames(profiles), rownames(profiles)))
+  for (i in seq_len(nrow(profiles))) {
+    for (h in seq_len(nrow(profiles))) {
+      D[i, h] <- sqrt(sum((profiles[i, ] - profiles[h, ])^2 / masses_col))
+    }
+  }
+  D
+}
+
+kable(round(chi2_dist_rows(perfil_f, c), 3))
+```
+
+La distancia entre clases no compara cuántos pasajeros había en cada clase, sino cómo se distribuyó la supervivencia dentro de cada clase.
+
+## Inercia total
+
+La inercia total de CA mide desviación global respecto a independencia. Está relacionada con el estadístico $\chi^2$:
+
+$$
+Inercia = \sum_{i=1}^{I}\sum_{j=1}^{J}
+\frac{(p_{ij}-r_ic_j)^2}{r_ic_j}
+=\frac{\chi^2}{n}.
+$$
+
+```{r}
+inercia_total <- as.numeric(chi$statistic) / sum(tab)
+inercia_total
+```
+
+Si la tabla está muy cerca de independencia, la inercia será pequeña y el mapa tendrá poca estructura que representar.
+
+## Matriz de residuos estandarizados
+
+CA aplica una descomposición en valores singulares a la matriz de desviaciones estandarizadas:
+
+$$
+S = D_r^{-1/2}(P-rc^\top)D_c^{-1/2},
+$$
+
+donde $D_r$ y $D_c$ son matrices diagonales con masas fila y columna. Esta matriz contiene desviaciones respecto a independencia expresadas en la geometría $\chi^2$.
+
+```{r}
+Dr_inv_sqrt <- diag(1 / sqrt(r))
+Dc_inv_sqrt <- diag(1 / sqrt(c))
+S <- Dr_inv_sqrt %*% (P - r %*% t(c)) %*% Dc_inv_sqrt
+kable(round(S, 4))
+```
+
+La descomposición:
+
+$$
+S = UDV^\top
+$$
+
+produce dimensiones factoriales. Los valores singulares al cuadrado son inercias principales:
+
+$$
+\lambda_m = d_m^2.
+$$
+
+## Coordenadas principales
+
+Las coordenadas principales de filas son:
+
+$$
+F = D_r^{-1/2}UD.
+$$
+
+Las coordenadas principales de columnas son:
+
+$$
+G = D_c^{-1/2}VD.
+$$
+
+```{r}
+sv <- svd(S)
+row_coord <- diag(1 / sqrt(r)) %*% sv$u %*% diag(sv$d)
+col_coord <- diag(1 / sqrt(c)) %*% sv$v %*% diag(sv$d)
+rownames(row_coord) <- rownames(tab)
+rownames(col_coord) <- colnames(tab)
+colnames(row_coord) <- paste0("Dim", seq_len(ncol(row_coord)))
+colnames(col_coord) <- paste0("Dim", seq_len(ncol(col_coord)))
+
+tibble(dimension = paste0("Dim", seq_along(sv$d)), inercia = round(sv$d^2, 5)) |>
+  kable()
+kable(round(row_coord[, 1, drop = FALSE], 3), caption = "Coordenadas fila")
+kable(round(col_coord[, 1, drop = FALSE], 3), caption = "Coordenadas columna")
+```
+
+Con dos columnas solo hay una dimensión no trivial, porque el rango máximo es $\min(I-1,J-1)$.
+
+## Ejemplo con dos dimensiones
+
+Para visualizar dos dimensiones, usamos una tabla más rica: clase por combinación de sexo y supervivencia.
+
+```{r}
+tab2 <- xtabs(Freq ~ Class + interaction(Sex, Survived), data = titanic)
+kable(tab2)
+```
+
+```{r}
+ca_manual <- function(tabla) {
+  P <- tabla / sum(tabla)
+  r <- rowSums(P)
+  c <- colSums(P)
+  S <- diag(1 / sqrt(r)) %*% (P - r %*% t(c)) %*% diag(1 / sqrt(c))
+  sv <- svd(S)
+  nf <- min(nrow(tabla) - 1, ncol(tabla) - 1)
+  row_coord <- diag(1 / sqrt(r)) %*% sv$u[, seq_len(nf), drop = FALSE] %*% diag(sv$d[seq_len(nf)], nf)
+  col_coord <- diag(1 / sqrt(c)) %*% sv$v[, seq_len(nf), drop = FALSE] %*% diag(sv$d[seq_len(nf)], nf)
+  rownames(row_coord) <- rownames(tabla)
+  rownames(col_coord) <- colnames(tabla)
+  list(P = P, r = r, c = c, d = sv$d[seq_len(nf)], row = row_coord, col = col_coord)
+}
+
+ca2 <- ca_manual(tab2)
+tibble(dimension = paste0("Dim", seq_along(ca2$d)), proporcion = round(ca2$d^2 / sum(ca2$d^2), 3)) |>
+  kable()
+```
+
+```{r}
+bind_rows(
+  as_tibble(ca2$row[, 1:2], rownames = "categoria") |> mutate(tipo = "Fila"),
+  as_tibble(ca2$col[, 1:2], rownames = "categoria") |> mutate(tipo = "Columna")
+) |>
+  set_names(c("categoria", "Dim1", "Dim2", "tipo")) |>
+  ggplot(aes(Dim1, Dim2, color = tipo, shape = tipo, label = categoria)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray60") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray60") +
+  geom_point(size = 3) +
+  geom_text(nudge_y = 0.03, size = 3) +
+  labs(title = "Mapa CA aproximado", x = "Dimensión 1", y = "Dimensión 2", color = "", shape = "") +
+  theme_minimal()
+```
+
+El mapa debe leerse como representación de asociaciones. Una clase cercana a una categoría columna sugiere asociación relativa, no necesariamente frecuencia absoluta alta.
+
+## Contribuciones
+
+La contribución de una fila $i$ a la dimensión $m$ mide cuánto participa en la construcción de ese eje:
+
+$$
+ctr_{im}=\frac{r_i f_{im}^2}{\lambda_m}.
+$$
+
+Para columnas:
+
+$$
+ctr_{jm}=\frac{c_j g_{jm}^2}{\lambda_m}.
+$$
+
+```{r}
+lambda2 <- ca2$d^2
+ctr_rows <- sweep(ca2$row^2, 2, lambda2, "/") * as.numeric(ca2$r)
+ctr_cols <- sweep(ca2$col^2, 2, lambda2, "/") * as.numeric(ca2$c)
+rownames(ctr_rows) <- rownames(tab2)
+rownames(ctr_cols) <- colnames(tab2)
+kable(round(ctr_rows, 3), caption = "Contribuciones de filas")
+kable(round(ctr_cols, 3), caption = "Contribuciones de columnas")
+```
+
+Una categoría con alta contribución ayuda a definir la dimensión. Una categoría con baja contribución no debería protagonizar la interpretación del eje.
+
+## Cos² o calidad de representación
+
+El cos² mide qué proporción de la distancia de un punto al origen queda representada en una dimensión o conjunto de dimensiones. Para una fila:
+
+$$
+cos^2_{im}=\frac{f_{im}^2}{\sum_{h} f_{ih}^2}.
+$$
+
+```{r}
+cos2_rows <- ca2$row^2 / rowSums(ca2$row^2)
+cos2_cols <- ca2$col^2 / rowSums(ca2$col^2)
+kable(round(cos2_rows, 3), caption = "Cos² de filas")
+kable(round(cos2_cols, 3), caption = "Cos² de columnas")
+```
+
+Un punto puede estar visualmente lejos, pero si está mal representado en el plano mostrado, conviene no interpretarlo demasiado.
+
+## CA con FactoMineR si está disponible
+
+```{r}
+ca <- FactoMineR::CA(tab2, graph = FALSE)
+kable(ca$eig, digits = 3)
+kable(ca$row$coord, digits = 3, caption = "Coordenadas fila")
+kable(ca$col$coord, digits = 3, caption = "Coordenadas columna")
+```
+
+## Interpretación correcta de proximidades
+
+Al interpretar un mapa CA:
+
+- proximidad entre una fila y una columna sugiere asociación relativa;
+- proximidad entre filas significa perfiles columna parecidos;
+- proximidad entre columnas significa perfiles fila parecidos;
+- el origen representa comportamiento medio;
+- puntos alejados del origen se apartan más de la independencia;
+- masas, contribuciones y cos² deben acompañar siempre la lectura visual.
+
+La proximidad entre categorías de la misma variable debe interpretarse con cautela. Lo central es cómo filas y columnas se asocian a las dimensiones y qué calidad tiene la representación.
+
+## Categorías raras y puntos extremos
+
+Categorías con masa baja pueden aparecer muy alejadas y dominar visualmente el mapa. Antes de interpretar un punto extremo hay que revisar:
+
+- su frecuencia;
+- su contribución;
+- su cos²;
+- si responde a una estructura estable o a un recuento pequeño.
+
+## Errores frecuentes
+
+- Interpretar el mapa como si mostrara frecuencias absolutas.
+- Confundir asociación con causalidad.
+- Ignorar masas, contribuciones y cos².
+- Dar importancia a categorías raras sin comprobar su peso.
+- Leer distancias entre puntos mal representados.
+- Olvidar que CA representa desviaciones respecto a independencia.
+
+## Resumen del capítulo
+
+CA convierte una tabla de contingencia en un mapa de perfiles. Parte de la independencia, mide desviaciones mediante la distancia $\chi^2$ y descompone la inercia en dimensiones factoriales. Su interpretación se basa en perfiles, masas, inercia, contribuciones, cos² y cautela ante categorías raras.
+
+## Ejercicios propuestos
+
+1. Analiza la tabla `Sex` por `Survived` en `Titanic`.
+2. Calcula residuos $\chi^2$ para `Class` por `Survived` e interpreta las celdas más extremas.
+3. Explica por qué una categoría rara puede quedar lejos del origen.
+4. Calcula masas fila y columna para una tabla de contingencia propia.
+5. Interpreta contribuciones y cos² en la tabla `Class` por `Sex:Survived`.

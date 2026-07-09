@@ -1,0 +1,468 @@
+# k-means y PAM
+
+```{r}
+#| label: setup
+#| message: false
+library(tidyverse)
+library(knitr)
+```
+
+## Motivación aplicada
+
+En lugar de construir una jerarquía completa, a veces queremos una partición directa en $k$ grupos. k-means y PAM son dos métodos clásicos para ese objetivo.
+
+La diferencia principal es qué representa a cada grupo. k-means usa centroides, que son medias y no tienen por qué corresponder a observaciones reales. PAM usa medoides, que son individuos reales del dataset.
+
+::: {.callout-note}
+k-means busca grupos compactos alrededor de centroides; si esa geometría no representa bien los datos, el resultado puede ser técnicamente correcto pero sustantivamente débil.
+:::
+
+## Qué es una partición
+
+Una partición asigna cada individuo a un único grupo. Si tenemos $n$ individuos y queremos $K$ clusters, buscamos conjuntos $C_1,\ldots,C_K$ tales que:
+
+- $C_g \cap C_h = \varnothing$ si $g \neq h$;
+- $C_1 \cup \cdots \cup C_K = \{1,\ldots,n\}$;
+- cada individuo pertenece a un solo cluster.
+
+La partición no tiene niveles intermedios como un dendrograma. Por eso hay que fijar o seleccionar $K$.
+
+## k-means: función objetivo
+
+k-means busca $K$ centroides $\mu_1,\ldots,\mu_K$ y una asignación de individuos a clusters que minimice la suma de cuadrados dentro de los grupos:
+
+$$
+W_K=\sum_{g=1}^{K}\sum_{i \in C_g}\lVert x_i-\mu_g\rVert^2.
+$$
+
+Para una partición fija, el mejor centroide de cada cluster es su media:
+
+$$
+\mu_g=\frac{1}{|C_g|}\sum_{i \in C_g}x_i.
+$$
+
+La función objetivo penaliza distancias euclídeas al cuadrado. Por eso k-means está muy ligado a variables numéricas, escalado y clusters aproximadamente esféricos.
+
+## Algoritmo de Lloyd
+
+El algoritmo más habitual de k-means alterna dos pasos:
+
+1. **Asignación**: cada individuo se asigna al centroide más cercano:
+
+$$
+c_i=\arg\min_{g=1,\ldots,K}\lVert x_i-\mu_g\rVert^2.
+$$
+
+2. **Actualización**: cada centroide se recalcula como la media de los individuos asignados:
+
+$$
+\mu_g^{nuevo}=\frac{1}{|C_g|}\sum_{i:c_i=g}x_i.
+$$
+
+Estos pasos se repiten hasta que las asignaciones no cambian o hasta alcanzar un número máximo de iteraciones. En cada iteración, la suma de cuadrados interna no aumenta. El algoritmo converge, pero puede converger a un óptimo local.
+
+## Inicialización y semillas
+
+Como k-means puede terminar en soluciones distintas según los centros iniciales, conviene usar varias inicializaciones. En R, `nstart = 25` ejecuta el algoritmo desde 25 inicios y conserva la mejor solución según la función objetivo.
+
+```{r}
+set.seed(123)
+vars_mtcars <- mtcars[, c("mpg", "disp", "hp", "wt", "qsec")]
+X <- scale(vars_mtcars)
+km3 <- kmeans(X, centers = 3, nstart = 25)
+kable(table(km3$cluster), col.names = c("Cluster", "Frecuencia"))
+tibble(tot_withinss = km3$tot.withinss) |>
+  kable()
+```
+
+## Una iteración manual de k-means
+
+Para entender el algoritmo, usamos dos variables de `mtcars` y tres centros iniciales. El siguiente código calcula asignación y actualización una vez.
+
+```{r}
+set.seed(42)
+X2 <- scale(mtcars[, c("mpg", "wt")])
+centros <- X2[sample(seq_len(nrow(X2)), 3), ]
+
+dist_a_centros <- sapply(seq_len(3), function(g) rowSums((X2 - matrix(centros[g, ], nrow(X2), 2, byrow = TRUE))^2))
+asignacion <- max.col(-dist_a_centros)
+centros_nuevos <- do.call(rbind, lapply(1:3, function(g) colMeans(X2[asignacion == g, , drop = FALSE])))
+
+round(centros, 2)
+kable(round(centros, 2), caption = "Centros iniciales")
+kable(round(centros_nuevos, 2), caption = "Centros tras una actualización")
+```
+
+Los centros se mueven hacia la media de los puntos que han atraído. Repetir este proceso reduce la suma de cuadrados interna.
+
+## Demo interactivo: evolución de k-means
+
+El siguiente bloque genera un pequeño control deslizante para ver varias iteraciones de k-means sobre dos variables de `mtcars`. No usa paquetes externos; solo HTML y JavaScript en la salida HTML de Quarto.
+
+```{r, results='asis'}
+X_demo <- scale(mtcars[, c("mpg", "wt")])
+K <- 3
+set.seed(1)
+centros <- X_demo[sample(seq_len(nrow(X_demo)), K), , drop = FALSE]
+historial <- list()
+
+for (iter in 1:8) {
+  distancias <- sapply(seq_len(K), function(g) {
+    rowSums((X_demo - matrix(centros[g, ], nrow(X_demo), 2, byrow = TRUE))^2)
+  })
+  cl <- max.col(-distancias)
+  historial[[iter]] <- list(iter = iter, puntos = X_demo, centros = centros, cluster = cl)
+  nuevos <- do.call(rbind, lapply(seq_len(K), function(g) colMeans(X_demo[cl == g, , drop = FALSE])))
+  if (max(abs(nuevos - centros)) < 1e-8) {
+    centros <- nuevos
+    break
+  }
+  centros <- nuevos
+}
+
+xlim <- range(X_demo[, 1], centros[, 1])
+ylim <- range(X_demo[, 2], centros[, 2])
+esc <- function(z, lim, a, b) a + (z - lim[1]) / diff(lim) * (b - a)
+
+slides <- vapply(historial, function(h) {
+  pts <- paste(sprintf(
+    "{x:%.2f,y:%.2f,c:%d}",
+    esc(h$puntos[, 1], xlim, 30, 470),
+    esc(h$puntos[, 2], ylim, 270, 30),
+    h$cluster
+  ), collapse = ",")
+  ctr <- paste(sprintf(
+    "{x:%.2f,y:%.2f,c:%d}",
+    esc(h$centros[, 1], xlim, 30, 470),
+    esc(h$centros[, 2], ylim, 270, 30),
+    seq_len(K)
+  ), collapse = ",")
+  sprintf("{label:'Iteracion %d', points:[%s], centers:[%s]}", h$iter, pts, ctr)
+}, character(1))
+
+cat(sprintf("
+<div id='km-demo' style='max-width:620px;margin:1rem auto;'>
+  <label for='km-slider'><strong>Iteracion:</strong> <span id='km-label'>1</span></label>
+  <input id='km-slider' type='range' min='1' max='%d' value='1' step='1' style='width:100%%;'>
+  <svg id='km-svg' viewBox='0 0 500 300' style='width:100%%;border:1px solid #ddd;background:#fff;'></svg>
+</div>
+<script>
+(function() {
+  const slides = [%s];
+  const colors = ['#1b9e77', '#d95f02', '#7570b3', '#e7298a'];
+  const svg = document.getElementById('km-svg');
+  const slider = document.getElementById('km-slider');
+  const label = document.getElementById('km-label');
+  function render(i) {
+    const s = slides[i];
+    label.textContent = s.label;
+    let html = '<line x1=\"30\" y1=\"270\" x2=\"470\" y2=\"270\" stroke=\"#aaa\" />' +
+               '<line x1=\"30\" y1=\"30\" x2=\"30\" y2=\"270\" stroke=\"#aaa\" />';
+    s.points.forEach(p => {
+      html += `<circle cx=\"${p.x}\" cy=\"${p.y}\" r=\"4\" fill=\"${colors[p.c - 1]}\" opacity=\"0.75\"></circle>`;
+    });
+    s.centers.forEach(p => {
+      html += `<path d=\"M ${p.x-8} ${p.y} L ${p.x+8} ${p.y} M ${p.x} ${p.y-8} L ${p.x} ${p.y+8}\" stroke=\"${colors[p.c - 1]}\" stroke-width=\"4\"></path>`;
+      html += `<circle cx=\"${p.x}\" cy=\"${p.y}\" r=\"9\" fill=\"none\" stroke=\"black\" stroke-width=\"1.5\"></circle>`;
+    });
+    svg.innerHTML = html;
+  }
+  slider.addEventListener('input', function() { render(Number(this.value) - 1); });
+  render(0);
+})();
+</script>
+", length(historial), paste(slides, collapse = ",")))
+```
+
+En cada paso, los puntos se colorean según su centroide más cercano y las cruces muestran los centroides antes de la actualización siguiente. La idea visual importante es que los centroides se desplazan hacia el centro de masa de los puntos que capturan.
+
+## Comparación con etiquetas externas
+
+En `mtcars` tenemos variables que no tienen por qué entrar como activas. La transmisión (`am`) o el número de cilindros (`cyl`) pueden servir como comparación externa.
+
+```{r}
+kable(table(cluster = km3$cluster, transmision = factor(mtcars$am, labels = c("automatico", "manual"))))
+kable(table(cluster = km3$cluster, cilindros = mtcars$cyl))
+```
+
+Una coincidencia alta no convierte el clustering en supervisado; simplemente indica que la estructura encontrada se alinea con una etiqueta conocida.
+
+## Elección del número de clusters
+
+### Método del codo
+
+El método del codo inspecciona cómo disminuye la variabilidad interna al aumentar $K$:
+
+$$
+W_K=\sum_{g=1}^{K}\sum_{i \in C_g}\lVert x_i-\mu_g\rVert^2.
+$$
+
+Como $W_K$ siempre disminuye al aumentar $K$, buscamos un punto donde la mejora adicional empieza a ser pequeña.
+
+```{r}
+set.seed(123)
+wss <- sapply(1:8, function(k) kmeans(X, centers = k, nstart = 25)$tot.withinss)
+tibble(k = 1:8, wss = wss) |>
+  ggplot(aes(k, wss)) +
+  geom_line() +
+  geom_point(size = 2) +
+  labs(title = "Método del codo", x = "Número de clusters", y = "Suma de cuadrados interna") +
+  theme_minimal()
+```
+
+El codo rara vez es completamente objetivo. Sirve como guía visual.
+
+### Silhouette
+
+Para cada individuo $i$, definimos:
+
+- $a(i)$: distancia media de $i$ a los individuos de su propio cluster;
+- $b(i)$: menor distancia media de $i$ a otro cluster.
+
+La silhouette es:
+
+$$
+s(i)=\frac{b(i)-a(i)}{\max\{a(i),b(i)\}}.
+$$
+
+Valores cercanos a 1 indican buena asignación; valores cerca de 0 indican frontera; valores negativos sugieren posible mala asignación.
+
+```{r}
+sil_media <- sapply(2:8, function(k) {
+  cl <- kmeans(X, centers = k, nstart = 25)$cluster
+  mean(cluster::silhouette(cl, dist(X))[, 3])
+})
+tibble(k = 2:8, silhouette_media = sil_media) |>
+  ggplot(aes(k, silhouette_media)) +
+  geom_line() +
+  geom_point(size = 2) +
+  labs(title = "Criterio silhouette", x = "k", y = "Silhouette media") +
+  theme_minimal()
+```
+
+### Gap statistic
+
+El gap statistic compara la variabilidad interna observada con la esperada bajo una distribución de referencia sin estructura clara:
+
+$$
+Gap(K)=E^*[\log(W_K^*)]-\log(W_K).
+$$
+
+Si el gap es grande, los clusters observados son más compactos de lo esperable bajo una nube sin estructura. En la práctica, se combina con interpretabilidad y estabilidad.
+
+```{r}
+set.seed(123)
+gap <- cluster::clusGap(X, FUN = kmeans, K.max = 6, B = 20, nstart = 10)
+as_tibble(gap$Tab, rownames = "k") |>
+  mutate(k = as.integer(k)) |>
+  ggplot(aes(k, gap)) +
+  geom_line() +
+  geom_point(size = 2) +
+  geom_errorbar(aes(ymin = gap - SE.sim, ymax = gap + SE.sim), width = 0.15) +
+  labs(title = "Gap statistic", x = "k", y = "Gap") +
+  theme_minimal()
+```
+
+## Sensibilidad de k-means
+
+k-means es sensible al escalado, outliers, variables irrelevantes y clusters no esféricos. También presupone que el promedio representa bien cada grupo.
+
+```{r}
+set.seed(123)
+km_sin_escalar <- kmeans(vars_mtcars, centers = 3, nstart = 25)
+kable(table(escalado = km3$cluster, sin_escalar = km_sin_escalar$cluster))
+```
+
+### Outliers
+
+Un outlier puede arrastrar un centroide o incluso ocupar casi un cluster.
+
+```{r}
+set.seed(123)
+X_out <- rbind(X[, 1:2], outlier = c(7, 7))
+km_out <- kmeans(X_out, centers = 3, nstart = 25)
+as_tibble(X_out, .name_repair = "minimal") |>
+  set_names(c("x", "y")) |>
+  mutate(cluster = factor(km_out$cluster), tipo = if_else(row_number() == n(), "outlier", "observacion")) |>
+  ggplot(aes(x, y, color = cluster, shape = tipo)) +
+  geom_point(size = 2.4, alpha = 0.85) +
+  geom_point(
+    data = as_tibble(km_out$centers, .name_repair = "minimal") |> set_names(c("x", "y")),
+    aes(x, y),
+    inherit.aes = FALSE,
+    shape = 4,
+    size = 5,
+    stroke = 1.3
+  ) +
+  labs(title = "k-means con outlier artificial", color = "Cluster", shape = "") +
+  theme_minimal()
+```
+
+### Clusters no esféricos
+
+k-means separa el espacio mediante regiones de Voronoi alrededor de centroides. Las fronteras son lineales y los clusters esperados son compactos.
+
+```{r}
+set.seed(99)
+t <- seq(0, 2 * pi, length.out = 80)
+anillo1 <- cbind(cos(t), sin(t)) + matrix(rnorm(160, sd = 0.05), ncol = 2)
+anillo2 <- 2.3 * cbind(cos(t), sin(t)) + matrix(rnorm(160, sd = 0.05), ncol = 2)
+anillos <- rbind(anillo1, anillo2)
+km_anillos <- kmeans(anillos, centers = 2, nstart = 25)
+tibble(x = anillos[, 1], y = anillos[, 2], cluster = factor(km_anillos$cluster)) |>
+  ggplot(aes(x, y, color = cluster)) +
+  geom_point(size = 1.8, alpha = 0.85) +
+  coord_equal() +
+  labs(title = "k-means ante formas no esféricas", color = "Cluster") +
+  theme_minimal()
+```
+
+Aunque hay dos anillos naturales, k-means tiende a cortar por regiones convexas, no por forma anular.
+
+## Cuándo no usar k-means
+
+No es buena elección si:
+
+- hay variables categóricas activas;
+- los clusters esperados son alargados, curvos o de densidad muy desigual;
+- hay muchos outliers;
+- el promedio no representa bien un grupo;
+- las variables relevantes están mezcladas con muchas variables irrelevantes;
+- el número de clusters no puede justificarse mínimamente.
+
+## k-medoids
+
+k-medoids reemplaza centroides por medoides. Un medoide $m_g$ es una observación real dentro del cluster $C_g$. La función objetivo típica es:
+
+$$
+\sum_{g=1}^{K}\sum_{i \in C_g} d(x_i,m_g).
+$$
+
+La asignación se hace al medoide más cercano. Luego se buscan medoides que reduzcan la suma de disimilitudes dentro de cada cluster.
+
+Ventajas frente a k-means:
+
+- puede trabajar con cualquier matriz de disimilitudes razonable;
+- el representante de cada grupo es un individuo real;
+- suele ser más robusto ante outliers;
+- permite usar distancias como Gower para datos mixtos.
+
+Desventajas:
+
+- puede ser más costoso computacionalmente;
+- sigue requiriendo elegir $K$;
+- si la distancia no representa bien la pregunta, el resultado tampoco lo hará.
+
+## PAM: Partitioning Around Medoids
+
+PAM es un algoritmo clásico de k-medoids. Tiene dos fases:
+
+1. **BUILD**: selecciona un conjunto inicial de medoides buscando reducir la disimilitud total;
+2. **SWAP**: prueba intercambios entre un medoide y un no medoide; acepta el intercambio si mejora la función objetivo.
+
+La idea del paso SWAP es comparar el coste actual con el coste que se obtendría si un medoide $m$ se reemplazara por una observación $h$. Si la suma total de distancias al medoide más cercano disminuye, el intercambio mejora la partición.
+
+```{r}
+pam3 <- cluster::pam(X, k = 3)
+kable(table(pam = pam3$clustering, transmision = factor(mtcars$am, labels = c("automatico", "manual"))))
+kable(as.data.frame(pam3$medoids), caption = "Medoides")
+```
+
+## PAM con distancia de Gower
+
+Una ventaja importante de PAM es que puede usar una matriz de disimilitudes. Por ejemplo, con `mtcars_mixed` podemos combinar variables numéricas y categóricas mediante Gower.
+
+```{r}
+mtcars_mixed <- mtcars
+mtcars_mixed$cyl <- factor(mtcars_mixed$cyl)
+mtcars_mixed$vs <- factor(mtcars_mixed$vs, labels = c("V", "Straight"))
+mtcars_mixed$am <- factor(mtcars_mixed$am, labels = c("automatico", "manual"))
+mtcars_mixed$gear <- factor(mtcars_mixed$gear)
+mtcars_mixed$carb <- factor(mtcars_mixed$carb)
+
+d_gower <- cluster::daisy(mtcars_mixed, metric = "gower")
+pam_cars <- cluster::pam(d_gower, k = 3, diss = TRUE)
+kable(table(pam_cars$clustering), col.names = c("Cluster", "Frecuencia"))
+tibble(medoide = rownames(mtcars_mixed)[pam_cars$id.med]) |>
+  kable()
+```
+
+## Comparación entre k-means y PAM
+
+| Aspecto | k-means | PAM / k-medoids |
+|---|---|---|
+| Representante | Centroide, media no necesariamente observada | Medoide, observación real |
+| Distancia natural | Euclídea al cuadrado | Cualquier disimilitud |
+| Tipo de variables | Numéricas | Numéricas, categóricas o mixtas si hay distancia adecuada |
+| Robustez ante outliers | Menor | Mayor |
+| Coste computacional | Menor | Mayor |
+| Interpretabilidad del representante | Media abstracta | Caso real representativo |
+
+## Caracterización preliminar
+
+Después de obtener clusters, hay que describirlos.
+
+```{r}
+aggregate(vars_mtcars, by = list(cluster = km3$cluster), mean) |>
+  kable(digits = 2)
+```
+
+También conviene revisar tamaños y dispersión interna:
+
+```{r}
+data.frame(
+  cluster = seq_along(km3$size),
+  tamano = km3$size,
+  withinss = round(km3$withinss, 2)
+) |>
+  kable()
+```
+
+Un cluster grande y heterogéneo puede indicar que $K$ es demasiado pequeño o que la geometría de k-means no encaja bien.
+
+## Estabilidad
+
+Una partición útil no debería depender excesivamente de una semilla concreta. Podemos repetir el algoritmo con varias semillas y mirar la variabilidad de la función objetivo.
+
+```{r}
+set.seed(1)
+totales <- replicate(20, kmeans(X, centers = 3, nstart = 1)$tot.withinss)
+tibble(
+  minimo = min(totales),
+  mediana = median(totales),
+  media = mean(totales),
+  maximo = max(totales)
+) |>
+  kable(digits = 2)
+tibble(ejecucion = seq_along(totales), tot_withinss = totales) |>
+  ggplot(aes(ejecucion, tot_withinss)) +
+  geom_line() +
+  geom_point(size = 2) +
+  labs(title = "Variabilidad por inicialización", x = "Ejecución", y = "Suma de cuadrados interna") +
+  theme_minimal()
+```
+
+Si hay mucha variabilidad, conviene aumentar `nstart`, revisar datos o plantear otro método.
+
+## Errores frecuentes
+
+- Elegir $K$ solo por defecto.
+- No usar `nstart` y depender de una inicialización débil.
+- Aplicar k-means a variables categóricas codificadas arbitrariamente.
+- Usar k-means sin escalar variables en unidades distintas.
+- Interpretar centroides como observaciones reales.
+- Usar PAM sin justificar la matriz de disimilitudes.
+- Nombrar clusters sin revisar perfiles de variables.
+
+## Resumen del capítulo
+
+k-means y PAM construyen particiones directas. k-means alterna asignación a centroides y actualización por medias, minimizando suma de cuadrados interna. PAM busca medoides reales y puede trabajar con disimilitudes generales. Ambos necesitan elegir $K$, revisar estabilidad y caracterizar los clusters después de calcularlos.
+
+## Ejercicios propuestos
+
+1. Aplica k-means a `mtcars` con $K=3$ y $K=4$.
+2. Compara k-means y PAM en `mtcars`.
+3. Explica por qué el método del codo rara vez da una respuesta única.
+4. Simula dos clusters alargados y comprueba cómo responde k-means.
+5. Usa PAM con una distancia de Gower en `mtcars_mixed`.
+6. Explica qué significa que un medoide sea una observación real y por qué eso puede ayudar en un informe aplicado.

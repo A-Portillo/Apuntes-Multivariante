@@ -1,0 +1,59 @@
+# Presentación de la asignatura
+
+## Qué es el análisis multivariante
+
+El análisis multivariante estudia conjuntos de datos en los que cada individuo se describe mediante varias variables. Una fila puede ser una flor, un coche, una provincia o una persona; una columna puede medir una longitud, una categoría social, una respuesta o una característica técnica.
+
+La idea central es que las variables no se interpretan aisladas. Lo interesante suele aparecer en sus relaciones: individuos que se parecen, variables que se mueven juntas, categorías que aparecen asociadas o grupos que pueden separarse mediante una regla de clasificación.
+
+::: {.callout-tip}
+Antes de aplicar una técnica multivariante hay que saber qué representan las filas, qué representan las columnas y qué significa que dos observaciones sean parecidas.
+:::
+
+## Qué problemas responde
+
+Las técnicas del curso aparecen cuando una sola variable no basta para responder la pregunta:
+
+- ¿hay grupos de individuos con perfiles parecidos?
+- ¿puedo resumir muchas variables en pocos ejes?
+- ¿qué variables explican mejor las diferencias entre observaciones?
+- ¿hay asociación entre categorías de dos o más variables?
+- ¿puedo clasificar nuevos individuos a partir de mediciones conocidas?
+
+Cada pregunta exige una representación distinta. En clustering buscamos grupos; en PCA buscamos ejes; en correspondencias buscamos asociaciones entre categorías; en discriminante buscamos reglas predictivas.
+
+## Tipos de datos
+
+Trabajaremos con variables numéricas, categóricas y mixtas. Las variables numéricas permiten usar distancias geométricas y combinaciones lineales. Las variables categóricas requieren pensar en perfiles, tablas de contingencia o codificaciones indicadoras. Los datos mixtos combinan ambas dificultades.
+
+Una misma tabla puede admitir varios análisis. Por ejemplo, `mtcars` tiene medidas numéricas de coches y variables técnicas como transmisión o cilindros. Podemos usarla para distancias, clustering, PCA, análisis factorial y FAMD si tratamos algunas variables como categóricas.
+
+## Describir, agrupar, asociar y clasificar
+
+Describir significa resumir patrones sin imponer una estructura fuerte. Agrupar significa construir clases no observadas. Reducir dimensión significa representar la información en pocos ejes. Asociar categorías significa estudiar desviaciones respecto a independencia. Clasificar significa predecir una etiqueta conocida para nuevos individuos.
+
+Confundir estos objetivos es un error frecuente. Un cluster no es una clase verdadera por el simple hecho de haber sido calculado. Un componente principal no es necesariamente una variable latente. Una asociación en una tabla no implica causalidad.
+
+## Cómo se trabajará con R
+
+R se usará como herramienta de razonamiento estadístico. El código debe permitir reproducir resultados, pero la interpretación no puede delegarse en el software. En cada análisis habrá que decidir:
+
+- qué variables son activas y cuáles solo ayudan a interpretar;
+- si hace falta escalar;
+- qué distancia, modelo o criterio se usa;
+- cuántos grupos, ejes o factores se retienen;
+- qué limitaciones tiene la conclusión.
+
+## Producto esperado
+
+El objetivo práctico de la asignatura es que puedas elaborar informes breves, reproducibles y bien justificados. Un buen informe multivariante no solo muestra gráficos: explica por qué se eligió la técnica, qué decisiones influyen en el resultado y qué afirmaciones serían demasiado fuertes.
+
+## Resumen del capítulo
+
+El análisis multivariante transforma tablas complejas en representaciones interpretables. La calidad de esas representaciones depende tanto del método como de las decisiones previas sobre variables, escalado, distancias y objetivos.
+
+## Ejercicios propuestos
+
+1. Elige un dataset conocido y define qué representa cada fila y cada columna.
+2. Formula una pregunta de clustering, una de reducción de dimensión y una de clasificación para el mismo dataset.
+3. Explica por qué una etiqueta obtenida por clustering no debe interpretarse igual que una clase observada.

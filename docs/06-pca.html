@@ -1,0 +1,2421 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="es" xml:lang="es"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.38">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>8&nbsp; Análisis de componentes principales – Técnicas Multivariantes Aplicadas con R</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<link href="./07-analisis-factorial.html" rel="next">
+<link href="./05-interpretacion-clusters.html" rel="prev">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-15634bcf2e68342d4ad2dfa704d543f6.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-d05e536813708dc17bf3d3bf7c238df9.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No se han encontrado resultados",
+    "search-matching-documents-text": "documentos encontrados",
+    "search-copy-link-title": "Copiar el enlace en la búsqueda",
+    "search-hide-matches-text": "Ocultar resultados adicionales",
+    "search-more-match-text": "resultado adicional en este documento",
+    "search-more-matches-text": "resultados adicionales en este documento",
+    "search-clear-button-title": "Borrar",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancelar",
+    "search-submit-button-title": "Enviar",
+    "search-label": "Buscar"
+  }
+}</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="nav-sidebar floating quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Alternar barra lateral" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./06-pca.html">Bloque 2. Reducción de dimensión</a></li><li class="breadcrumb-item"><a href="./06-pca.html"><span class="chapter-number">8</span>&nbsp; <span class="chapter-title">Análisis de componentes principales</span></a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Alternar barra lateral" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Buscar" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="./">Técnicas Multivariantes Aplicadas con R</a> 
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Buscar"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Técnicas Multivariantes Aplicadas con R</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./00-presentacion.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Presentación de la asignatura</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./01-introduccion.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Introducción conceptual</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
+ <span class="menu-text">Bloque 1. Análisis cluster</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Alternar sección">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./02-distancias.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Distancias y similitud</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./03-clustering-jerarquico.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Clustering jerárquico</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./04-kmeans-pam.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">k-means y PAM</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./05-interpretacion-clusters.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Interpretación de clusters</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true">
+ <span class="menu-text">Bloque 2. Reducción de dimensión</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true" aria-label="Alternar sección">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-2" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./06-pca.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text"><span class="chapter-number">8</span>&nbsp; <span class="chapter-title">Análisis de componentes principales</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./07-analisis-factorial.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">9</span>&nbsp; <span class="chapter-title">Análisis factorial exploratorio</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true">
+ <span class="menu-text">Bloque 3. Análisis de correspondencias y datos mixtos</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true" aria-label="Alternar sección">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-3" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./09-correspondencias.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">10</span>&nbsp; <span class="chapter-title">Análisis de correspondencias simple</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./10-mca.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">11</span>&nbsp; <span class="chapter-title">Análisis de correspondencias múltiples</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./08-famd.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">12</span>&nbsp; <span class="chapter-title">FAMD para datos mixtos</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" role="navigation" aria-expanded="true">
+ <span class="menu-text">Bloque 4. Análisis discriminante</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" role="navigation" aria-expanded="true" aria-label="Alternar sección">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-4" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./11-discriminante.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">13</span>&nbsp; <span class="chapter-title">Análisis discriminante</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-5" role="navigation" aria-expanded="true">
+ <span class="menu-text">Casos integradores</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-5" role="navigation" aria-expanded="true" aria-label="Alternar sección">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-5" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./12-casos-integradores.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">14</span>&nbsp; <span class="chapter-title">Casos integradores</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-6" role="navigation" aria-expanded="true">
+ <span class="menu-text">Apéndice práctico</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-6" role="navigation" aria-expanded="true" aria-label="Alternar sección">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-6" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./tidyverse.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">15</span>&nbsp; <span class="chapter-title">Guía rápida de tidyverse y dplyr</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./references.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Referencias</span></a>
+  </div>
+</li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Tabla de contenidos</h2>
+   
+  <ul>
+  <li><a href="#motivación-intuitiva-los-datos-no-llenan-todo-el-espacio" id="toc-motivación-intuitiva-los-datos-no-llenan-todo-el-espacio" class="nav-link active" data-scroll-target="#motivación-intuitiva-los-datos-no-llenan-todo-el-espacio"><span class="header-section-number">8.1</span> Motivación intuitiva: los datos no llenan todo el espacio</a></li>
+  <li><a href="#una-imagen-geométrica-sencilla" id="toc-una-imagen-geométrica-sencilla" class="nav-link" data-scroll-target="#una-imagen-geométrica-sencilla"><span class="header-section-number">8.2</span> Una imagen geométrica sencilla</a></li>
+  <li><a href="#qué-hace-pca" id="toc-qué-hace-pca" class="nav-link" data-scroll-target="#qué-hace-pca"><span class="header-section-number">8.3</span> Qué hace PCA</a></li>
+  <li><a href="#centrado-escalado-y-matriz-de-covarianzas" id="toc-centrado-escalado-y-matriz-de-covarianzas" class="nav-link" data-scroll-target="#centrado-escalado-y-matriz-de-covarianzas"><span class="header-section-number">8.4</span> Centrado, escalado y matriz de covarianzas</a></li>
+  <li><a href="#varianza-de-una-componente" id="toc-varianza-de-una-componente" class="nav-link" data-scroll-target="#varianza-de-una-componente"><span class="header-section-number">8.5</span> Varianza de una componente</a></li>
+  <li><a href="#por-qué-las-componentes-son-ortogonales" id="toc-por-qué-las-componentes-son-ortogonales" class="nav-link" data-scroll-target="#por-qué-las-componentes-son-ortogonales"><span class="header-section-number">8.6</span> Por qué las componentes son ortogonales</a></li>
+  <li><a href="#varianza-total-y-traza" id="toc-varianza-total-y-traza" class="nav-link" data-scroll-target="#varianza-total-y-traza"><span class="header-section-number">8.7</span> Varianza total y traza</a></li>
+  <li><a href="#pca-con-prcomp" id="toc-pca-con-prcomp" class="nav-link" data-scroll-target="#pca-con-prcomp"><span class="header-section-number">8.8</span> PCA con <code>prcomp()</code></a></li>
+  <li><a href="#scores-y-loadings" id="toc-scores-y-loadings" class="nav-link" data-scroll-target="#scores-y-loadings"><span class="header-section-number">8.9</span> Scores y loadings</a></li>
+  <li><a href="#varianza-explicada-y-scree-plot" id="toc-varianza-explicada-y-scree-plot" class="nav-link" data-scroll-target="#varianza-explicada-y-scree-plot"><span class="header-section-number">8.10</span> Varianza explicada y scree plot</a></li>
+  <li><a href="#interpretación-de-individuos" id="toc-interpretación-de-individuos" class="nav-link" data-scroll-target="#interpretación-de-individuos"><span class="header-section-number">8.11</span> Interpretación de individuos</a></li>
+  <li><a href="#interpretación-de-variables" id="toc-interpretación-de-variables" class="nav-link" data-scroll-target="#interpretación-de-variables"><span class="header-section-number">8.12</span> Interpretación de variables</a></li>
+  <li><a href="#biplot-contribuciones-y-cos²" id="toc-biplot-contribuciones-y-cos²" class="nav-link" data-scroll-target="#biplot-contribuciones-y-cos²"><span class="header-section-number">8.13</span> Biplot, contribuciones y cos²</a></li>
+  <li><a href="#pca-sobre-covarianzas-frente-a-correlaciones" id="toc-pca-sobre-covarianzas-frente-a-correlaciones" class="nav-link" data-scroll-target="#pca-sobre-covarianzas-frente-a-correlaciones"><span class="header-section-number">8.14</span> PCA sobre covarianzas frente a correlaciones</a></li>
+  <li><a href="#pca-como-reducción-de-dimensión" id="toc-pca-como-reducción-de-dimensión" class="nav-link" data-scroll-target="#pca-como-reducción-de-dimensión"><span class="header-section-number">8.15</span> PCA como reducción de dimensión</a></li>
+  <li><a href="#pca-como-preprocesamiento" id="toc-pca-como-preprocesamiento" class="nav-link" data-scroll-target="#pca-como-preprocesamiento"><span class="header-section-number">8.16</span> PCA como preprocesamiento</a></li>
+  <li><a href="#limitaciones" id="toc-limitaciones" class="nav-link" data-scroll-target="#limitaciones"><span class="header-section-number">8.17</span> Limitaciones</a></li>
+  <li><a href="#errores-frecuentes" id="toc-errores-frecuentes" class="nav-link" data-scroll-target="#errores-frecuentes"><span class="header-section-number">8.18</span> Errores frecuentes</a></li>
+  <li><a href="#resumen-del-capítulo" id="toc-resumen-del-capítulo" class="nav-link" data-scroll-target="#resumen-del-capítulo"><span class="header-section-number">8.19</span> Resumen del capítulo</a></li>
+  <li><a href="#ejercicios-propuestos" id="toc-ejercicios-propuestos" class="nav-link" data-scroll-target="#ejercicios-propuestos"><span class="header-section-number">8.20</span> Ejercicios propuestos</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./06-pca.html">Bloque 2. Reducción de dimensión</a></li><li class="breadcrumb-item"><a href="./06-pca.html"><span class="chapter-number">8</span>&nbsp; <span class="chapter-title">Análisis de componentes principales</span></a></li></ol></nav>
+<div class="quarto-title">
+<div class="quarto-title-block"><div><h1 class="title"><span class="chapter-number">8</span>&nbsp; <span class="chapter-title">Análisis de componentes principales</span></h1><button type="button" class="btn code-tools-button dropdown-toggle" id="quarto-code-tools-menu" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi"></i> Código</button><ul class="dropdown-menu dropdown-menu-end" aria-labelelledby="quarto-code-tools-menu"><li><a id="quarto-show-all-code" class="dropdown-item" href="javascript:void(0)" role="button">Mostrar todo el código</a></li><li><a id="quarto-hide-all-code" class="dropdown-item" href="javascript:void(0)" role="button">Ocultar todo el código</a></li><li><hr class="dropdown-divider"></li><li><a id="quarto-view-source" class="dropdown-item" href="javascript:void(0)" role="button">Ver el código fuente</a></li></ul></div></div>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<div class="cell">
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(knitr)</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<section id="motivación-intuitiva-los-datos-no-llenan-todo-el-espacio" class="level2" data-number="8.1">
+<h2 data-number="8.1" class="anchored" data-anchor-id="motivación-intuitiva-los-datos-no-llenan-todo-el-espacio"><span class="header-section-number">8.1</span> Motivación intuitiva: los datos no llenan todo el espacio</h2>
+<p>Imaginemos imágenes de dígitos escritos a mano, como las del conjunto MNIST. Si cada imagen tiene <span class="math inline">\(28 \times 28\)</span> píxeles, cada dígito puede representarse como un punto con 784 variables. En principio, el espacio posible es enorme: cualquier combinación de intensidades de píxeles sería un punto válido.</p>
+<p>Pero los dígitos reales no ocupan uniformemente ese espacio. La mayoría de combinaciones posibles de píxeles no parecen números. Los dígitos viven cerca de estructuras de dimensión mucho menor: formas con trazos, bucles, picos, inclinaciones, anchuras y curvaturas. Un <code>0</code> suele tener un bucle; un <code>1</code> suele ser estrecho; un <code>2</code> tiene una curva superior y una base; un <code>8</code> tiene dos bucles.</p>
+<p>Reducir dimensión consiste en encontrar características más informativas que las variables originales. En lugar de describir una imagen píxel a píxel, nos gustaría resumirla mediante ejes que capturen patrones importantes de variación: grosor, inclinación, apertura, presencia de bucles o contraste entre zonas.</p>
+<p>PCA hace una versión lineal de esta idea. No descubre bucles de forma semántica como lo haría una persona, pero construye nuevas variables que resumen las direcciones de mayor variabilidad de los datos.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Nota
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>PCA rota el sistema de coordenadas para ordenar direcciones de máxima variabilidad, pero no garantiza que esas direcciones sean las más relevantes para cualquier pregunta aplicada.</p>
+</div>
+</div>
+</section>
+<section id="una-imagen-geométrica-sencilla" class="level2" data-number="8.2">
+<h2 data-number="8.2" class="anchored" data-anchor-id="una-imagen-geométrica-sencilla"><span class="header-section-number">8.2</span> Una imagen geométrica sencilla</h2>
+<p>Si una nube de puntos en dos dimensiones está alargada, no ocupa todo el plano por igual. Hay una dirección principal donde varía mucho y otra dirección perpendicular donde varía poco. PCA busca esas direcciones.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="dv">120</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>z1 <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n, <span class="at">sd =</span> <span class="fl">2.5</span>)</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>z2 <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n, <span class="at">sd =</span> <span class="fl">0.35</span>)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>theta <span class="ot">&lt;-</span> pi <span class="sc">/</span> <span class="dv">5</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>R <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">c</span>(<span class="fu">cos</span>(theta), <span class="sc">-</span><span class="fu">sin</span>(theta), <span class="fu">sin</span>(theta), <span class="fu">cos</span>(theta)), <span class="at">nrow =</span> <span class="dv">2</span>)</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>X_sim <span class="ot">&lt;-</span> <span class="fu">cbind</span>(z1, z2) <span class="sc">%*%</span> <span class="fu">t</span>(R)</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(X_sim) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"x1"</span>, <span class="st">"x2"</span>)</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>pca_sim <span class="ot">&lt;-</span> <span class="fu">prcomp</span>(X_sim, <span class="at">center =</span> <span class="cn">TRUE</span>, <span class="at">scale. =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>componentes_sim <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">componente =</span> <span class="fu">c</span>(<span class="st">"PC1"</span>, <span class="st">"PC2"</span>),</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">x =</span> <span class="fu">c</span>(pca_sim<span class="sc">$</span>rotation[<span class="dv">1</span>, <span class="dv">1</span>] <span class="sc">*</span> <span class="dv">4</span>, pca_sim<span class="sc">$</span>rotation[<span class="dv">1</span>, <span class="dv">2</span>] <span class="sc">*</span> <span class="dv">2</span>),</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">y =</span> <span class="fu">c</span>(pca_sim<span class="sc">$</span>rotation[<span class="dv">2</span>, <span class="dv">1</span>] <span class="sc">*</span> <span class="dv">4</span>, pca_sim<span class="sc">$</span>rotation[<span class="dv">2</span>, <span class="dv">2</span>] <span class="sc">*</span> <span class="dv">2</span>)</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="fu">as_tibble</span>(X_sim) <span class="sc">|&gt;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(x1, x2)) <span class="sc">+</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">color =</span> <span class="st">"gray40"</span>, <span class="at">alpha =</span> <span class="fl">0.85</span>) <span class="sc">+</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_segment</span>(</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">data =</span> componentes_sim,</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    <span class="fu">aes</span>(<span class="at">x =</span> <span class="dv">0</span>, <span class="at">y =</span> <span class="dv">0</span>, <span class="at">xend =</span> x, <span class="at">yend =</span> y, <span class="at">color =</span> componente),</span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>    <span class="at">arrow =</span> grid<span class="sc">::</span><span class="fu">arrow</span>(<span class="at">length =</span> grid<span class="sc">::</span><span class="fu">unit</span>(<span class="fl">0.18</span>, <span class="st">"cm"</span>)),</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>    <span class="at">linewidth =</span> <span class="fl">1.2</span>,</span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>    <span class="at">inherit.aes =</span> <span class="cn">FALSE</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_equal</span>() <span class="sc">+</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Una nube alargada no llena el plano"</span>, <span class="at">x =</span> <span class="st">"x1"</span>, <span class="at">y =</span> <span class="st">"x2"</span>, <span class="at">color =</span> <span class="st">"Componente"</span>) <span class="sc">+</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="06-pca_files/figure-html/unnamed-chunk-1-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>La primera componente apunta en la dirección donde la nube se extiende más. La segunda es perpendicular y recoge la variabilidad restante. Si proyectamos los puntos sobre la primera dirección, perdemos información, pero conservamos gran parte de la estructura.</p>
+</section>
+<section id="qué-hace-pca" class="level2" data-number="8.3">
+<h2 data-number="8.3" class="anchored" data-anchor-id="qué-hace-pca"><span class="header-section-number">8.3</span> Qué hace PCA</h2>
+<p>PCA construye componentes <span class="math inline">\(Z_1, Z_2, \ldots, Z_p\)</span> como combinaciones lineales de las variables originales:</p>
+<p><span class="math display">\[
+Z_m = a_{1m}X_1 + a_{2m}X_2 + \cdots + a_{pm}X_p.
+\]</span></p>
+<p>El vector <span class="math inline">\(a_m=(a_{1m},\ldots,a_{pm})\)</span> contiene las cargas de la componente <span class="math inline">\(m\)</span>. Para evitar que la varianza crezca artificialmente solo por multiplicar coeficientes, se exige:</p>
+<p><span class="math display">\[
+\lVert a_m \rVert^2 = a_m^\top a_m = 1.
+\]</span></p>
+<p>La primera componente busca la dirección de máxima varianza:</p>
+<p><span class="math display">\[
+a_1 = \arg\max_{\lVert a \rVert = 1} Var(Xa).
+\]</span></p>
+<p>La segunda componente busca la mayor varianza posible entre las direcciones ortogonales a la primera. Y así sucesivamente.</p>
+</section>
+<section id="centrado-escalado-y-matriz-de-covarianzas" class="level2" data-number="8.4">
+<h2 data-number="8.4" class="anchored" data-anchor-id="centrado-escalado-y-matriz-de-covarianzas"><span class="header-section-number">8.4</span> Centrado, escalado y matriz de covarianzas</h2>
+<p>PCA se aplica normalmente sobre datos centrados. Si <span class="math inline">\(X\)</span> es la matriz de datos, centramos cada variable restando su media. La matriz de covarianzas de los datos centrados es:</p>
+<p><span class="math display">\[
+S=\frac{1}{n-1}X^\top X.
+\]</span></p>
+<p>Si las variables tienen unidades distintas, PCA suele hacerse sobre variables estandarizadas. Esto equivale a usar la matriz de correlaciones en lugar de la matriz de covarianzas.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>X <span class="ot">&lt;-</span> mtcars[, <span class="fu">c</span>(<span class="st">"mpg"</span>, <span class="st">"disp"</span>, <span class="st">"hp"</span>, <span class="st">"drat"</span>, <span class="st">"wt"</span>, <span class="st">"qsec"</span>)]</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(<span class="fu">round</span>(<span class="fu">cov</span>(X), <span class="dv">2</span>), <span class="at">caption =</span> <span class="st">"Matriz de covarianzas"</span>)</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<caption>Matriz de covarianzas</caption>
+<thead>
+<tr class="header">
+<th style="text-align: left;"></th>
+<th style="text-align: right;">mpg</th>
+<th style="text-align: right;">disp</th>
+<th style="text-align: right;">hp</th>
+<th style="text-align: right;">drat</th>
+<th style="text-align: right;">wt</th>
+<th style="text-align: right;">qsec</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">mpg</td>
+<td style="text-align: right;">36.32</td>
+<td style="text-align: right;">-633.10</td>
+<td style="text-align: right;">-320.73</td>
+<td style="text-align: right;">2.20</td>
+<td style="text-align: right;">-5.12</td>
+<td style="text-align: right;">4.51</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">disp</td>
+<td style="text-align: right;">-633.10</td>
+<td style="text-align: right;">15360.80</td>
+<td style="text-align: right;">6721.16</td>
+<td style="text-align: right;">-47.06</td>
+<td style="text-align: right;">107.68</td>
+<td style="text-align: right;">-96.05</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">hp</td>
+<td style="text-align: right;">-320.73</td>
+<td style="text-align: right;">6721.16</td>
+<td style="text-align: right;">4700.87</td>
+<td style="text-align: right;">-16.45</td>
+<td style="text-align: right;">44.19</td>
+<td style="text-align: right;">-86.77</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">drat</td>
+<td style="text-align: right;">2.20</td>
+<td style="text-align: right;">-47.06</td>
+<td style="text-align: right;">-16.45</td>
+<td style="text-align: right;">0.29</td>
+<td style="text-align: right;">-0.37</td>
+<td style="text-align: right;">0.09</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">wt</td>
+<td style="text-align: right;">-5.12</td>
+<td style="text-align: right;">107.68</td>
+<td style="text-align: right;">44.19</td>
+<td style="text-align: right;">-0.37</td>
+<td style="text-align: right;">0.96</td>
+<td style="text-align: right;">-0.31</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">qsec</td>
+<td style="text-align: right;">4.51</td>
+<td style="text-align: right;">-96.05</td>
+<td style="text-align: right;">-86.77</td>
+<td style="text-align: right;">0.09</td>
+<td style="text-align: right;">-0.31</td>
+<td style="text-align: right;">3.19</td>
+</tr>
+</tbody>
+</table>
+</div>
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(<span class="fu">round</span>(<span class="fu">cor</span>(X), <span class="dv">2</span>), <span class="at">caption =</span> <span class="st">"Matriz de correlaciones"</span>)</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<caption>Matriz de correlaciones</caption>
+<thead>
+<tr class="header">
+<th style="text-align: left;"></th>
+<th style="text-align: right;">mpg</th>
+<th style="text-align: right;">disp</th>
+<th style="text-align: right;">hp</th>
+<th style="text-align: right;">drat</th>
+<th style="text-align: right;">wt</th>
+<th style="text-align: right;">qsec</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">mpg</td>
+<td style="text-align: right;">1.00</td>
+<td style="text-align: right;">-0.85</td>
+<td style="text-align: right;">-0.78</td>
+<td style="text-align: right;">0.68</td>
+<td style="text-align: right;">-0.87</td>
+<td style="text-align: right;">0.42</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">disp</td>
+<td style="text-align: right;">-0.85</td>
+<td style="text-align: right;">1.00</td>
+<td style="text-align: right;">0.79</td>
+<td style="text-align: right;">-0.71</td>
+<td style="text-align: right;">0.89</td>
+<td style="text-align: right;">-0.43</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">hp</td>
+<td style="text-align: right;">-0.78</td>
+<td style="text-align: right;">0.79</td>
+<td style="text-align: right;">1.00</td>
+<td style="text-align: right;">-0.45</td>
+<td style="text-align: right;">0.66</td>
+<td style="text-align: right;">-0.71</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">drat</td>
+<td style="text-align: right;">0.68</td>
+<td style="text-align: right;">-0.71</td>
+<td style="text-align: right;">-0.45</td>
+<td style="text-align: right;">1.00</td>
+<td style="text-align: right;">-0.71</td>
+<td style="text-align: right;">0.09</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">wt</td>
+<td style="text-align: right;">-0.87</td>
+<td style="text-align: right;">0.89</td>
+<td style="text-align: right;">0.66</td>
+<td style="text-align: right;">-0.71</td>
+<td style="text-align: right;">1.00</td>
+<td style="text-align: right;">-0.17</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">qsec</td>
+<td style="text-align: right;">0.42</td>
+<td style="text-align: right;">-0.43</td>
+<td style="text-align: right;">-0.71</td>
+<td style="text-align: right;">0.09</td>
+<td style="text-align: right;">-0.17</td>
+<td style="text-align: right;">1.00</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>La decisión entre covarianzas y correlaciones no es automática. Usar covarianzas conserva las unidades originales; usar correlaciones da el mismo peso inicial a todas las variables estandarizadas.</p>
+</section>
+<section id="varianza-de-una-componente" class="level2" data-number="8.5">
+<h2 data-number="8.5" class="anchored" data-anchor-id="varianza-de-una-componente"><span class="header-section-number">8.5</span> Varianza de una componente</h2>
+<p>Si una componente es <span class="math inline">\(Z = Xa\)</span>, su varianza es:</p>
+<p><span class="math display">\[
+Var(Z)=Var(Xa)=a^\top S a.
+\]</span></p>
+<p>Por tanto, PCA busca direcciones unitarias <span class="math inline">\(a\)</span> que hagan grande <span class="math inline">\(a^\top S a\)</span>. Las soluciones son los autovectores de <span class="math inline">\(S\)</span>, y las varianzas explicadas son los autovalores asociados.</p>
+<p>No necesitamos desarrollar aquí toda la demostración algebraica. La idea importante es esta: la matriz <span class="math inline">\(S\)</span> describe cómo varían conjuntamente las variables; sus autovectores señalan direcciones especiales de variación; sus autovalores miden cuánta varianza hay en esas direcciones.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>Xsc <span class="ot">&lt;-</span> <span class="fu">scale</span>(X)</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>S <span class="ot">&lt;-</span> <span class="fu">cov</span>(Xsc)</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>eig <span class="ot">&lt;-</span> <span class="fu">eigen</span>(S)</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="fu">tibble</span>(<span class="at">componente =</span> <span class="fu">paste0</span>(<span class="st">"PC"</span>, <span class="fu">seq_along</span>(eig<span class="sc">$</span>values)), <span class="at">autovalor =</span> <span class="fu">round</span>(eig<span class="sc">$</span>values, <span class="dv">3</span>)) <span class="sc">|&gt;</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable</span>()</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: left;">componente</th>
+<th style="text-align: right;">autovalor</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">PC1</td>
+<td style="text-align: right;">4.187</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">PC2</td>
+<td style="text-align: right;">1.148</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">PC3</td>
+<td style="text-align: right;">0.333</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">PC4</td>
+<td style="text-align: right;">0.154</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">PC5</td>
+<td style="text-align: right;">0.125</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">PC6</td>
+<td style="text-align: right;">0.052</td>
+</tr>
+</tbody>
+</table>
+</div>
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(<span class="fu">round</span>(eig<span class="sc">$</span>vectors, <span class="dv">3</span>), <span class="at">caption =</span> <span class="st">"Autovectores"</span>)</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<caption>Autovectores</caption>
+<tbody>
+<tr class="odd">
+<td style="text-align: right;">0.459</td>
+<td style="text-align: right;">-0.059</td>
+<td style="text-align: right;">-0.195</td>
+<td style="text-align: right;">0.782</td>
+<td style="text-align: right;">0.111</td>
+<td style="text-align: right;">-0.352</td>
+</tr>
+<tr class="even">
+<td style="text-align: right;">-0.466</td>
+<td style="text-align: right;">0.061</td>
+<td style="text-align: right;">0.097</td>
+<td style="text-align: right;">0.600</td>
+<td style="text-align: right;">-0.295</td>
+<td style="text-align: right;">0.568</td>
+</tr>
+<tr class="odd">
+<td style="text-align: right;">-0.426</td>
+<td style="text-align: right;">-0.361</td>
+<td style="text-align: right;">0.146</td>
+<td style="text-align: right;">0.123</td>
+<td style="text-align: right;">0.806</td>
+<td style="text-align: right;">-0.048</td>
+</tr>
+<tr class="even">
+<td style="text-align: right;">0.367</td>
+<td style="text-align: right;">-0.437</td>
+<td style="text-align: right;">0.800</td>
+<td style="text-align: right;">0.023</td>
+<td style="text-align: right;">-0.144</td>
+<td style="text-align: right;">0.113</td>
+</tr>
+<tr class="odd">
+<td style="text-align: right;">-0.439</td>
+<td style="text-align: right;">0.300</td>
+<td style="text-align: right;">0.418</td>
+<td style="text-align: right;">0.104</td>
+<td style="text-align: right;">-0.230</td>
+<td style="text-align: right;">-0.692</td>
+</tr>
+<tr class="even">
+<td style="text-align: right;">0.253</td>
+<td style="text-align: right;">0.763</td>
+<td style="text-align: right;">0.341</td>
+<td style="text-align: right;">0.043</td>
+<td style="text-align: right;">0.422</td>
+<td style="text-align: right;">0.242</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</section>
+<section id="por-qué-las-componentes-son-ortogonales" class="level2" data-number="8.6">
+<h2 data-number="8.6" class="anchored" data-anchor-id="por-qué-las-componentes-son-ortogonales"><span class="header-section-number">8.6</span> Por qué las componentes son ortogonales</h2>
+<p>Las componentes principales están construidas para ser ortogonales entre sí. Si <span class="math inline">\(a_r\)</span> y <span class="math inline">\(a_s\)</span> son dos vectores de carga asociados a autovalores distintos <span class="math inline">\(\lambda_r\)</span> y <span class="math inline">\(\lambda_s\)</span>, entonces:</p>
+<p><span class="math display">\[
+S a_r = \lambda_r a_r,
+\]</span></p>
+<p><span class="math display">\[
+S a_s = \lambda_s a_s.
+\]</span></p>
+<p>Como <span class="math inline">\(S\)</span> es simétrica, se cumple que <span class="math inline">\(a_s^\top S a_r = a_r^\top S a_s\)</span>. Sustituyendo:</p>
+<p><span class="math display">\[
+\lambda_r a_s^\top a_r = \lambda_s a_r^\top a_s.
+\]</span></p>
+<p>Como <span class="math inline">\(a_s^\top a_r = a_r^\top a_s\)</span>, queda:</p>
+<p><span class="math display">\[
+(\lambda_r-\lambda_s)a_r^\top a_s=0.
+\]</span></p>
+<p>Si los autovalores son diferentes, <span class="math inline">\(\lambda_r \neq \lambda_s\)</span>, entonces necesariamente:</p>
+<p><span class="math display">\[
+a_r^\top a_s=0.
+\]</span></p>
+<p>Es decir, las direcciones son ortogonales. Esta ortogonalidad significa que PCA evita repetir la misma dirección de variabilidad: cada componente añade una dirección nueva, perpendicular a las anteriores.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Nota
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Cuando hay autovalores iguales, la dirección exacta dentro del subespacio asociado puede no ser única. En aplicaciones introductorias, lo importante es que el subespacio retenido sigue representando la misma variabilidad.</p>
+</div>
+</div>
+</section>
+<section id="varianza-total-y-traza" class="level2" data-number="8.7">
+<h2 data-number="8.7" class="anchored" data-anchor-id="varianza-total-y-traza"><span class="header-section-number">8.7</span> Varianza total y traza</h2>
+<p>La varianza total de un conjunto de variables centradas se define como la suma de las varianzas de las variables originales:</p>
+<p><span class="math display">\[
+Var_{total} = Var(X_1)+\cdots+Var(X_p).
+\]</span></p>
+<p>En la matriz de covarianzas, esas varianzas están en la diagonal. Por tanto:</p>
+<p><span class="math display">\[
+Var_{total} = tr(S).
+\]</span></p>
+<p>La traza de una matriz cuadrada es la suma de su diagonal. En PCA, las componentes principales equivalen a rotar el sistema de coordenadas mediante una matriz ortogonal de cargas <span class="math inline">\(A\)</span>. La matriz de covarianzas de las componentes es:</p>
+<p><span class="math display">\[
+S_Z = A^\top S A.
+\]</span></p>
+<p>Como <span class="math inline">\(A\)</span> es una rotación ortogonal, no estira ni comprime el espacio; solo cambia los ejes. La varianza total se conserva:</p>
+<p><span class="math display">\[
+tr(S_Z)=tr(A^\top S A)=tr(S).
+\]</span></p>
+<p>Además, en los ejes principales, la matriz <span class="math inline">\(S_Z\)</span> queda diagonal y sus entradas diagonales son los autovalores:</p>
+<p><span class="math display">\[
+tr(S)=\lambda_1+\lambda_2+\cdots+\lambda_p.
+\]</span></p>
+<p>Por eso podemos hablar de proporción de varianza explicada por la componente <span class="math inline">\(m\)</span>:</p>
+<p><span class="math display">\[
+\frac{\lambda_m}{\lambda_1+\cdots+\lambda_p}.
+\]</span></p>
+<div class="cell">
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>var_total_original <span class="ot">&lt;-</span> <span class="fu">sum</span>(<span class="fu">diag</span>(S))</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>var_total_componentes <span class="ot">&lt;-</span> <span class="fu">sum</span>(eig<span class="sc">$</span>values)</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="fu">c</span>(</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">traza_covarianzas =</span> var_total_original,</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">suma_autovalores =</span> var_total_componentes</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as.list</span>() <span class="sc">|&gt;</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as_tibble</span>() <span class="sc">|&gt;</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable</span>()</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: right;">traza_covarianzas</th>
+<th style="text-align: right;">suma_autovalores</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">6</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>La igualdad numérica confirma la idea: PCA redistribuye la misma varianza total entre ejes nuevos ordenados de mayor a menor importancia.</p>
+</section>
+<section id="pca-con-prcomp" class="level2" data-number="8.8">
+<h2 data-number="8.8" class="anchored" data-anchor-id="pca-con-prcomp"><span class="header-section-number">8.8</span> PCA con <code>prcomp()</code></h2>
+<p>En R, <code>prcomp()</code> calcula PCA de forma estable. Con <code>scale. = TRUE</code> usamos variables estandarizadas.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>pca_mtcars <span class="ot">&lt;-</span> <span class="fu">prcomp</span>(X, <span class="at">center =</span> <span class="cn">TRUE</span>, <span class="at">scale. =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(<span class="fu">summary</span>(pca_mtcars)<span class="sc">$</span>importance, <span class="at">digits =</span> <span class="dv">3</span>)</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: left;"></th>
+<th style="text-align: right;">PC1</th>
+<th style="text-align: right;">PC2</th>
+<th style="text-align: right;">PC3</th>
+<th style="text-align: right;">PC4</th>
+<th style="text-align: right;">PC5</th>
+<th style="text-align: right;">PC6</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Standard deviation</td>
+<td style="text-align: right;">2.046</td>
+<td style="text-align: right;">1.071</td>
+<td style="text-align: right;">0.577</td>
+<td style="text-align: right;">0.393</td>
+<td style="text-align: right;">0.353</td>
+<td style="text-align: right;">0.228</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Proportion of Variance</td>
+<td style="text-align: right;">0.698</td>
+<td style="text-align: right;">0.191</td>
+<td style="text-align: right;">0.056</td>
+<td style="text-align: right;">0.026</td>
+<td style="text-align: right;">0.021</td>
+<td style="text-align: right;">0.009</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Cumulative Proportion</td>
+<td style="text-align: right;">0.698</td>
+<td style="text-align: right;">0.889</td>
+<td style="text-align: right;">0.945</td>
+<td style="text-align: right;">0.971</td>
+<td style="text-align: right;">0.991</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+</tbody>
+</table>
+</div>
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(<span class="fu">round</span>(pca_mtcars<span class="sc">$</span>rotation, <span class="dv">3</span>), <span class="at">caption =</span> <span class="st">"Cargas"</span>)</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<caption>Cargas</caption>
+<thead>
+<tr class="header">
+<th style="text-align: left;"></th>
+<th style="text-align: right;">PC1</th>
+<th style="text-align: right;">PC2</th>
+<th style="text-align: right;">PC3</th>
+<th style="text-align: right;">PC4</th>
+<th style="text-align: right;">PC5</th>
+<th style="text-align: right;">PC6</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">mpg</td>
+<td style="text-align: right;">-0.459</td>
+<td style="text-align: right;">-0.059</td>
+<td style="text-align: right;">0.195</td>
+<td style="text-align: right;">-0.782</td>
+<td style="text-align: right;">0.111</td>
+<td style="text-align: right;">-0.352</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">disp</td>
+<td style="text-align: right;">0.466</td>
+<td style="text-align: right;">0.061</td>
+<td style="text-align: right;">-0.097</td>
+<td style="text-align: right;">-0.600</td>
+<td style="text-align: right;">-0.295</td>
+<td style="text-align: right;">0.568</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">hp</td>
+<td style="text-align: right;">0.426</td>
+<td style="text-align: right;">-0.361</td>
+<td style="text-align: right;">-0.146</td>
+<td style="text-align: right;">-0.123</td>
+<td style="text-align: right;">0.806</td>
+<td style="text-align: right;">-0.048</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">drat</td>
+<td style="text-align: right;">-0.367</td>
+<td style="text-align: right;">-0.437</td>
+<td style="text-align: right;">-0.800</td>
+<td style="text-align: right;">-0.023</td>
+<td style="text-align: right;">-0.144</td>
+<td style="text-align: right;">0.113</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">wt</td>
+<td style="text-align: right;">0.439</td>
+<td style="text-align: right;">0.300</td>
+<td style="text-align: right;">-0.418</td>
+<td style="text-align: right;">-0.104</td>
+<td style="text-align: right;">-0.230</td>
+<td style="text-align: right;">-0.692</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">qsec</td>
+<td style="text-align: right;">-0.253</td>
+<td style="text-align: right;">0.763</td>
+<td style="text-align: right;">-0.341</td>
+<td style="text-align: right;">-0.043</td>
+<td style="text-align: right;">0.422</td>
+<td style="text-align: right;">0.242</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>Los elementos principales del resultado son:</p>
+<ul>
+<li><code>rotation</code>: cargas o direcciones de las componentes;</li>
+<li><code>x</code>: scores, coordenadas de los individuos;</li>
+<li><code>sdev</code>: desviaciones típicas de las componentes;</li>
+<li><code>sdev^2</code>: varianzas explicadas.</li>
+</ul>
+</section>
+<section id="scores-y-loadings" class="level2" data-number="8.9">
+<h2 data-number="8.9" class="anchored" data-anchor-id="scores-y-loadings"><span class="header-section-number">8.9</span> Scores y loadings</h2>
+<p>Los <strong>loadings</strong> indican cómo se construye cada componente a partir de las variables originales. Los <strong>scores</strong> son las coordenadas de cada individuo en el nuevo sistema.</p>
+<p>Si <span class="math inline">\(A\)</span> es la matriz de cargas, los scores se obtienen como:</p>
+<p><span class="math display">\[
+Z = X A.
+\]</span></p>
+<p>En datos centrados y escalados, <code>prcomp()</code> aplica esa transformación internamente.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>scores <span class="ot">&lt;-</span> <span class="fu">as.data.frame</span>(pca_mtcars<span class="sc">$</span>x)</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(<span class="fu">round</span>(scores[, <span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>], <span class="dv">2</span>)) <span class="sc">|&gt;</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable</span>()</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: left;"></th>
+<th style="text-align: right;">PC1</th>
+<th style="text-align: right;">PC2</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Mazda RX4</td>
+<td style="text-align: right;">-0.84</td>
+<td style="text-align: right;">-0.87</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Mazda RX4 Wag</td>
+<td style="text-align: right;">-0.81</td>
+<td style="text-align: right;">-0.56</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Datsun 710</td>
+<td style="text-align: right;">-1.69</td>
+<td style="text-align: right;">0.04</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Hornet 4 Drive</td>
+<td style="text-align: right;">-0.10</td>
+<td style="text-align: right;">1.29</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Hornet Sportabout</td>
+<td style="text-align: right;">1.29</td>
+<td style="text-align: right;">0.01</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Valiant</td>
+<td style="text-align: right;">0.22</td>
+<td style="text-align: right;">2.01</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</section>
+<section id="varianza-explicada-y-scree-plot" class="level2" data-number="8.10">
+<h2 data-number="8.10" class="anchored" data-anchor-id="varianza-explicada-y-scree-plot"><span class="header-section-number">8.10</span> Varianza explicada y scree plot</h2>
+<div class="cell">
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>var_exp <span class="ot">&lt;-</span> pca_mtcars<span class="sc">$</span>sdev<span class="sc">^</span><span class="dv">2</span> <span class="sc">/</span> <span class="fu">sum</span>(pca_mtcars<span class="sc">$</span>sdev<span class="sc">^</span><span class="dv">2</span>)</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="fu">tibble</span>(</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">componente =</span> <span class="fu">factor</span>(<span class="fu">paste0</span>(<span class="st">"PC"</span>, <span class="fu">seq_along</span>(var_exp)), <span class="at">levels =</span> <span class="fu">paste0</span>(<span class="st">"PC"</span>, <span class="fu">seq_along</span>(var_exp))),</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">varianza =</span> var_exp</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(componente, varianza, <span class="at">group =</span> <span class="dv">1</span>)) <span class="sc">+</span></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>(<span class="at">fill =</span> <span class="st">"#4c78a8"</span>, <span class="at">alpha =</span> <span class="fl">0.8</span>) <span class="sc">+</span></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">color =</span> <span class="st">"#222222"</span>) <span class="sc">+</span></span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">size =</span> <span class="dv">2</span>) <span class="sc">+</span></span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Varianza explicada"</span>, <span class="at">x =</span> <span class="st">"Componente"</span>, <span class="at">y =</span> <span class="st">"Proporción de varianza"</span>) <span class="sc">+</span></span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="06-pca_files/figure-html/unnamed-chunk-7-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tibble</span>(<span class="at">componente =</span> <span class="fu">paste0</span>(<span class="st">"PC"</span>, <span class="fu">seq_along</span>(var_exp)), <span class="at">acumulada =</span> <span class="fu">round</span>(<span class="fu">cumsum</span>(var_exp), <span class="dv">3</span>)) <span class="sc">|&gt;</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable</span>()</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: left;">componente</th>
+<th style="text-align: right;">acumulada</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">PC1</td>
+<td style="text-align: right;">0.698</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">PC2</td>
+<td style="text-align: right;">0.889</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">PC3</td>
+<td style="text-align: right;">0.945</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">PC4</td>
+<td style="text-align: right;">0.971</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">PC5</td>
+<td style="text-align: right;">0.991</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">PC6</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>El número de componentes no debe elegirse solo por una regla mecánica. Hay que combinar:</p>
+<ul>
+<li>proporción de varianza explicada;</li>
+<li>forma del scree plot;</li>
+<li>interpretabilidad de los ejes;</li>
+<li>objetivo posterior del análisis;</li>
+<li>coste de perder información.</li>
+</ul>
+</section>
+<section id="interpretación-de-individuos" class="level2" data-number="8.11">
+<h2 data-number="8.11" class="anchored" data-anchor-id="interpretación-de-individuos"><span class="header-section-number">8.11</span> Interpretación de individuos</h2>
+<div class="cell">
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>scores <span class="sc">|&gt;</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">transmision =</span> <span class="fu">factor</span>(mtcars<span class="sc">$</span>am, <span class="at">labels =</span> <span class="fu">c</span>(<span class="st">"automatico"</span>, <span class="st">"manual"</span>))) <span class="sc">|&gt;</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(PC1, PC2, <span class="at">color =</span> transmision)) <span class="sc">+</span></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">size =</span> <span class="dv">2</span>, <span class="at">alpha =</span> <span class="fl">0.85</span>) <span class="sc">+</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Individuos en el plano PCA"</span>, <span class="at">color =</span> <span class="st">"Transmisión"</span>) <span class="sc">+</span></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="06-pca_files/figure-html/unnamed-chunk-8-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Los puntos cercanos tienen perfiles parecidos en las variables activas, siempre dentro de la calidad de representación del plano mostrado. Si los dos primeros componentes explican poca varianza, las proximidades del plano pueden ser engañosas.</p>
+</section>
+<section id="interpretación-de-variables" class="level2" data-number="8.12">
+<h2 data-number="8.12" class="anchored" data-anchor-id="interpretación-de-variables"><span class="header-section-number">8.12</span> Interpretación de variables</h2>
+<p>Las cargas indican qué variables contribuyen a cada eje.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>load <span class="ot">&lt;-</span> pca_mtcars<span class="sc">$</span>rotation[, <span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>]</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="fu">as_tibble</span>(load, <span class="at">rownames =</span> <span class="st">"variable"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(PC1, PC2, <span class="at">label =</span> variable)) <span class="sc">+</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">linetype =</span> <span class="st">"dashed"</span>, <span class="at">color =</span> <span class="st">"gray60"</span>) <span class="sc">+</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="dv">0</span>, <span class="at">linetype =</span> <span class="st">"dashed"</span>, <span class="at">color =</span> <span class="st">"gray60"</span>) <span class="sc">+</span></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_segment</span>(<span class="fu">aes</span>(<span class="at">x =</span> <span class="dv">0</span>, <span class="at">y =</span> <span class="dv">0</span>, <span class="at">xend =</span> PC1, <span class="at">yend =</span> PC2), <span class="at">arrow =</span> grid<span class="sc">::</span><span class="fu">arrow</span>(<span class="at">length =</span> grid<span class="sc">::</span><span class="fu">unit</span>(<span class="fl">0.15</span>, <span class="st">"cm"</span>))) <span class="sc">+</span></span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_text</span>(<span class="at">nudge_y =</span> <span class="fl">0.05</span>) <span class="sc">+</span></span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_equal</span>(<span class="at">xlim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">1</span>, <span class="dv">1</span>), <span class="at">ylim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">1</span>, <span class="dv">1</span>)) <span class="sc">+</span></span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Cargas de variables"</span>) <span class="sc">+</span></span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="06-pca_files/figure-html/unnamed-chunk-9-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Variables con flechas próximas tienden a estar correlacionadas. Flechas opuestas sugieren asociación negativa. Flechas casi perpendiculares sugieren asociación lineal débil en el plano representado.</p>
+<p>El signo de una componente es arbitrario: si multiplicamos todas sus cargas y scores por <span class="math inline">\(-1\)</span>, la información no cambia. Por eso no debe interpretarse el signo de forma aislada, sino la oposición entre variables y la posición relativa de individuos.</p>
+</section>
+<section id="biplot-contribuciones-y-cos²" class="level2" data-number="8.13">
+<h2 data-number="8.13" class="anchored" data-anchor-id="biplot-contribuciones-y-cos²"><span class="header-section-number">8.13</span> Biplot, contribuciones y cos²</h2>
+<div class="cell">
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>biplot_scores <span class="ot">&lt;-</span> scores <span class="sc">|&gt;</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">transmision =</span> <span class="fu">factor</span>(mtcars<span class="sc">$</span>am, <span class="at">labels =</span> <span class="fu">c</span>(<span class="st">"automatico"</span>, <span class="st">"manual"</span>)))</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>biplot_loadings <span class="ot">&lt;-</span> <span class="fu">as_tibble</span>(load, <span class="at">rownames =</span> <span class="st">"variable"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">PC1 =</span> PC1 <span class="sc">*</span> <span class="fu">max</span>(<span class="fu">abs</span>(biplot_scores<span class="sc">$</span>PC1)), <span class="at">PC2 =</span> PC2 <span class="sc">*</span> <span class="fu">max</span>(<span class="fu">abs</span>(biplot_scores<span class="sc">$</span>PC2)))</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(biplot_scores, <span class="fu">aes</span>(PC1, PC2, <span class="at">color =</span> transmision)) <span class="sc">+</span></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">alpha =</span> <span class="fl">0.65</span>) <span class="sc">+</span></span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_segment</span>(</span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">data =</span> biplot_loadings,</span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">aes</span>(<span class="at">x =</span> <span class="dv">0</span>, <span class="at">y =</span> <span class="dv">0</span>, <span class="at">xend =</span> PC1, <span class="at">yend =</span> PC2),</span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">inherit.aes =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">arrow =</span> grid<span class="sc">::</span><span class="fu">arrow</span>(<span class="at">length =</span> grid<span class="sc">::</span><span class="fu">unit</span>(<span class="fl">0.15</span>, <span class="st">"cm"</span>)),</span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">color =</span> <span class="st">"black"</span></span>
+<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_text</span>(</span>
+<span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a>    <span class="at">data =</span> biplot_loadings,</span>
+<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a>    <span class="fu">aes</span>(PC1, PC2, <span class="at">label =</span> variable),</span>
+<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">inherit.aes =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb15-19"><a href="#cb15-19" aria-hidden="true" tabindex="-1"></a>    <span class="at">nudge_y =</span> <span class="fl">0.2</span></span>
+<span id="cb15-20"><a href="#cb15-20" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb15-21"><a href="#cb15-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Biplot PCA de mtcars"</span>, <span class="at">color =</span> <span class="st">"Transmisión"</span>) <span class="sc">+</span></span>
+<span id="cb15-22"><a href="#cb15-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="06-pca_files/figure-html/unnamed-chunk-10-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>El cos² mide calidad de representación de un punto o variable en los ejes retenidos. Para una variable, un cos² alto en el plano PC1-PC2 indica que la variable está bien representada en ese plano.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>coord_var <span class="ot">&lt;-</span> pca_mtcars<span class="sc">$</span>rotation[, <span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>]</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>cos2_var <span class="ot">&lt;-</span> coord_var<span class="sc">^</span><span class="dv">2</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(<span class="fu">round</span>(cos2_var, <span class="dv">3</span>))</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: left;"></th>
+<th style="text-align: right;">PC1</th>
+<th style="text-align: right;">PC2</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">mpg</td>
+<td style="text-align: right;">0.210</td>
+<td style="text-align: right;">0.003</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">disp</td>
+<td style="text-align: right;">0.217</td>
+<td style="text-align: right;">0.004</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">hp</td>
+<td style="text-align: right;">0.181</td>
+<td style="text-align: right;">0.131</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">drat</td>
+<td style="text-align: right;">0.135</td>
+<td style="text-align: right;">0.191</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">wt</td>
+<td style="text-align: right;">0.192</td>
+<td style="text-align: right;">0.090</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">qsec</td>
+<td style="text-align: right;">0.064</td>
+<td style="text-align: right;">0.582</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>Las contribuciones indican cuánto aporta cada variable o individuo a la construcción de un eje. Una variable puede estar bien representada y, además, contribuir mucho a una componente; ambas ideas están relacionadas, pero no son idénticas.</p>
+</section>
+<section id="pca-sobre-covarianzas-frente-a-correlaciones" class="level2" data-number="8.14">
+<h2 data-number="8.14" class="anchored" data-anchor-id="pca-sobre-covarianzas-frente-a-correlaciones"><span class="header-section-number">8.14</span> PCA sobre covarianzas frente a correlaciones</h2>
+<p>Veamos <code>mtcars</code>. Las variables tienen escalas diferentes, así que el PCA sin escalar queda dominado por variables con mayor varianza.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>pca_us_cov <span class="ot">&lt;-</span> <span class="fu">prcomp</span>(X, <span class="at">center =</span> <span class="cn">TRUE</span>, <span class="at">scale. =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>pca_us_cor <span class="ot">&lt;-</span> <span class="fu">prcomp</span>(X, <span class="at">center =</span> <span class="cn">TRUE</span>, <span class="at">scale. =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a><span class="fu">tibble</span>(</span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">componente =</span> <span class="fu">colnames</span>(<span class="fu">summary</span>(pca_us_cov)<span class="sc">$</span>importance),</span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">covarianzas =</span> <span class="fu">round</span>(<span class="fu">summary</span>(pca_us_cov)<span class="sc">$</span>importance[<span class="dv">2</span>, ], <span class="dv">3</span>),</span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">correlaciones =</span> <span class="fu">round</span>(<span class="fu">summary</span>(pca_us_cor)<span class="sc">$</span>importance[<span class="dv">2</span>, ], <span class="dv">3</span>)</span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span></span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable</span>(<span class="at">caption =</span> <span class="st">"Varianza explicada"</span>)</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<caption>Varianza explicada</caption>
+<thead>
+<tr class="header">
+<th style="text-align: left;">componente</th>
+<th style="text-align: right;">covarianzas</th>
+<th style="text-align: right;">correlaciones</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">PC1</td>
+<td style="text-align: right;">0.927</td>
+<td style="text-align: right;">0.698</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">PC2</td>
+<td style="text-align: right;">0.072</td>
+<td style="text-align: right;">0.191</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">PC3</td>
+<td style="text-align: right;">0.000</td>
+<td style="text-align: right;">0.056</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">PC4</td>
+<td style="text-align: right;">0.000</td>
+<td style="text-align: right;">0.026</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">PC5</td>
+<td style="text-align: right;">0.000</td>
+<td style="text-align: right;">0.021</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">PC6</td>
+<td style="text-align: right;">0.000</td>
+<td style="text-align: right;">0.009</td>
+</tr>
+</tbody>
+</table>
+</div>
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tibble</span>(</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">variable =</span> <span class="fu">names</span>(pca_us_cov<span class="sc">$</span>rotation[, <span class="dv">1</span>]),</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">covarianzas =</span> <span class="fu">round</span>(pca_us_cov<span class="sc">$</span>rotation[, <span class="dv">1</span>], <span class="dv">3</span>),</span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">correlaciones =</span> <span class="fu">round</span>(pca_us_cor<span class="sc">$</span>rotation[, <span class="dv">1</span>], <span class="dv">3</span>)</span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable</span>(<span class="at">caption =</span> <span class="st">"Cargas de PC1"</span>)</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<caption>Cargas de PC1</caption>
+<thead>
+<tr class="header">
+<th style="text-align: left;">variable</th>
+<th style="text-align: right;">covarianzas</th>
+<th style="text-align: right;">correlaciones</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">mpg</td>
+<td style="text-align: right;">-0.038</td>
+<td style="text-align: right;">-0.459</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">disp</td>
+<td style="text-align: right;">0.900</td>
+<td style="text-align: right;">0.466</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">hp</td>
+<td style="text-align: right;">0.435</td>
+<td style="text-align: right;">0.426</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">drat</td>
+<td style="text-align: right;">-0.003</td>
+<td style="text-align: right;">-0.367</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">wt</td>
+<td style="text-align: right;">0.006</td>
+<td style="text-align: right;">0.439</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">qsec</td>
+<td style="text-align: right;">-0.007</td>
+<td style="text-align: right;">-0.253</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>La diferencia no es un error de R: responde a dos preguntas distintas. Sin escalar, las variables con mayor dispersión en sus unidades originales tienen más influencia. Con escalado, todas parten con varianza 1.</p>
+</section>
+<section id="pca-como-reducción-de-dimensión" class="level2" data-number="8.15">
+<h2 data-number="8.15" class="anchored" data-anchor-id="pca-como-reducción-de-dimensión"><span class="header-section-number">8.15</span> PCA como reducción de dimensión</h2>
+<p>Si retenemos solo las primeras <span class="math inline">\(q\)</span> componentes, con <span class="math inline">\(q &lt; p\)</span>, aproximamos los datos mediante:</p>
+<p><span class="math display">\[
+X \approx Z_q A_q^\top.
+\]</span></p>
+<p>Esta aproximación conserva la parte de la variabilidad asociada a los mayores autovalores y descarta direcciones de menor varianza. En contextos como imágenes, esto puede verse como una compresión lineal: no guardamos todos los píxeles, sino unas pocas coordenadas que resumen patrones dominantes.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>X_mtcars_scaled <span class="ot">&lt;-</span> <span class="fu">scale</span>(X)</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>pca_mtcars_full <span class="ot">&lt;-</span> <span class="fu">prcomp</span>(X_mtcars_scaled, <span class="at">center =</span> <span class="cn">FALSE</span>, <span class="at">scale. =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>X_aprox_2 <span class="ot">&lt;-</span> pca_mtcars_full<span class="sc">$</span>x[, <span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>] <span class="sc">%*%</span> <span class="fu">t</span>(pca_mtcars_full<span class="sc">$</span>rotation[, <span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>])</span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>error_medio <span class="ot">&lt;-</span> <span class="fu">mean</span>((X_mtcars_scaled <span class="sc">-</span> X_aprox_2)<span class="sc">^</span><span class="dv">2</span>)</span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a><span class="fu">tibble</span>(<span class="at">error_medio =</span> <span class="fu">round</span>(error_medio, <span class="dv">4</span>)) <span class="sc">|&gt;</span></span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable</span>()</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: right;">error_medio</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: right;">0.1073</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>El error de reconstrucción baja al retener más componentes, pero la representación se vuelve menos simple.</p>
+</section>
+<section id="pca-como-preprocesamiento" class="level2" data-number="8.16">
+<h2 data-number="8.16" class="anchored" data-anchor-id="pca-como-preprocesamiento"><span class="header-section-number">8.16</span> PCA como preprocesamiento</h2>
+<p>PCA puede usarse antes de clustering o clasificación para reducir ruido y colinealidad. Esa reducción también puede eliminar información relevante, por lo que debe justificarse.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Código</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>cl_pca <span class="ot">&lt;-</span> <span class="fu">kmeans</span>(pca_mtcars<span class="sc">$</span>x[, <span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>], <span class="at">centers =</span> <span class="dv">3</span>, <span class="at">nstart =</span> <span class="dv">25</span>)</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(<span class="fu">table</span>(<span class="at">cluster =</span> cl_pca<span class="sc">$</span>cluster, <span class="at">transmision =</span> <span class="fu">factor</span>(mtcars<span class="sc">$</span>am, <span class="at">labels =</span> <span class="fu">c</span>(<span class="st">"automatico"</span>, <span class="st">"manual"</span>))))</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: right;">automatico</th>
+<th style="text-align: right;">manual</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">6</td>
+</tr>
+<tr class="even">
+<td style="text-align: right;">12</td>
+<td style="text-align: right;">2</td>
+</tr>
+<tr class="odd">
+<td style="text-align: right;">7</td>
+<td style="text-align: right;">5</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>Aquí usamos solo dos componentes. En <code>mtcars</code> puede ayudar a construir grupos de coches, pero las direcciones de máxima varianza no tienen por qué coincidir con las direcciones que separan mejor una etiqueta externa como <code>am</code>.</p>
+</section>
+<section id="limitaciones" class="level2" data-number="8.17">
+<h2 data-number="8.17" class="anchored" data-anchor-id="limitaciones"><span class="header-section-number">8.17</span> Limitaciones</h2>
+<p>PCA tiene varias limitaciones:</p>
+<ul>
+<li>es lineal;</li>
+<li>está pensado para variables numéricas;</li>
+<li>maximiza varianza, no separación de grupos ni capacidad predictiva;</li>
+<li>puede ser sensible a outliers;</li>
+<li>las componentes pueden ser difíciles de interpretar;</li>
+<li>una dimensión de baja varianza puede ser importante para una pregunta concreta;</li>
+<li>los ejes cambian si cambiamos escalado, variables activas o población analizada.</li>
+</ul>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Advertencia
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Que una componente explique mucha varianza no implica que sea causal, estable ni sustantivamente importante.</p>
+</div>
+</div>
+</section>
+<section id="errores-frecuentes" class="level2" data-number="8.18">
+<h2 data-number="8.18" class="anchored" data-anchor-id="errores-frecuentes"><span class="header-section-number">8.18</span> Errores frecuentes</h2>
+<ul>
+<li>Aplicar PCA sin centrar los datos.</li>
+<li>No escalar variables con unidades muy diferentes.</li>
+<li>Interpretar el plano PC1-PC2 sin revisar varianza explicada.</li>
+<li>Creer que las componentes tienen interpretación única y objetiva.</li>
+<li>Confundir PCA con análisis factorial latente.</li>
+<li>Usar PCA para separar clases y olvidar que PCA no usa la etiqueta.</li>
+<li>Interpretar el signo de una componente como si fuera absoluto.</li>
+</ul>
+</section>
+<section id="resumen-del-capítulo" class="level2" data-number="8.19">
+<h2 data-number="8.19" class="anchored" data-anchor-id="resumen-del-capítulo"><span class="header-section-number">8.19</span> Resumen del capítulo</h2>
+<p>PCA parte de una idea geométrica: los datos suelen vivir cerca de estructuras de menor dimensión que el espacio original. Construye componentes como combinaciones lineales ortogonales que ordenan la varianza. La varianza total se conserva porque PCA rota los ejes y la varianza total es la traza de la matriz de covarianzas. Interpretar PCA exige revisar escalado, varianza explicada, cargas, scores, cos² y el objetivo aplicado.</p>
+</section>
+<section id="ejercicios-propuestos" class="level2" data-number="8.20">
+<h2 data-number="8.20" class="anchored" data-anchor-id="ejercicios-propuestos"><span class="header-section-number">8.20</span> Ejercicios propuestos</h2>
+<ol type="1">
+<li>Aplica PCA a <code>mtcars</code> con escalado y comenta los dos primeros componentes.</li>
+<li>Compara PCA de <code>mtcars</code> con y sin escalado usando diferentes subconjuntos de variables.</li>
+<li>Explica por qué una variable con mucha varianza puede dominar un PCA sin estandarizar.</li>
+<li>Simula una nube alargada en dos dimensiones y dibuja sus componentes principales.</li>
+<li>Verifica en <code>mtcars</code> que la suma de autovalores coincide con la traza de la matriz de covarianzas.</li>
+<li>Explica por qué PCA no tiene por qué encontrar la dirección que mejor separa coches automáticos y manuales.</li>
+</ol>
+
+
+<!-- -->
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copiado");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copiado");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+<nav class="page-navigation">
+  <div class="nav-page nav-page-previous">
+      <a href="./05-interpretacion-clusters.html" class="pagination-link" aria-label="Interpretación de clusters">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Interpretación de clusters</span></span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+      <a href="./07-analisis-factorial.html" class="pagination-link" aria-label="Análisis factorial exploratorio">
+        <span class="nav-page-text"><span class="chapter-number">9</span>&nbsp; <span class="chapter-title">Análisis factorial exploratorio</span></span> <i class="bi bi-arrow-right-short"></i>
+      </a>
+  </div>
+</nav><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Ejecutar el código</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb21" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="fu"># Análisis de componentes principales</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: setup</span></span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a><span class="co">#| message: false</span></span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(knitr)</span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a><span class="fu">## Motivación intuitiva: los datos no llenan todo el espacio</span></span>
+<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-14"><a href="#cb21-14" aria-hidden="true" tabindex="-1"></a>Imaginemos imágenes de dígitos escritos a mano, como las del conjunto MNIST. Si cada imagen tiene $28 \times 28$ píxeles, cada dígito puede representarse como un punto con 784 variables. En principio, el espacio posible es enorme: cualquier combinación de intensidades de píxeles sería un punto válido.</span>
+<span id="cb21-15"><a href="#cb21-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-16"><a href="#cb21-16" aria-hidden="true" tabindex="-1"></a>Pero los dígitos reales no ocupan uniformemente ese espacio. La mayoría de combinaciones posibles de píxeles no parecen números. Los dígitos viven cerca de estructuras de dimensión mucho menor: formas con trazos, bucles, picos, inclinaciones, anchuras y curvaturas. Un <span class="in">`0`</span> suele tener un bucle; un <span class="in">`1`</span> suele ser estrecho; un <span class="in">`2`</span> tiene una curva superior y una base; un <span class="in">`8`</span> tiene dos bucles.</span>
+<span id="cb21-17"><a href="#cb21-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-18"><a href="#cb21-18" aria-hidden="true" tabindex="-1"></a>Reducir dimensión consiste en encontrar características más informativas que las variables originales. En lugar de describir una imagen píxel a píxel, nos gustaría resumirla mediante ejes que capturen patrones importantes de variación: grosor, inclinación, apertura, presencia de bucles o contraste entre zonas.</span>
+<span id="cb21-19"><a href="#cb21-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-20"><a href="#cb21-20" aria-hidden="true" tabindex="-1"></a>PCA hace una versión lineal de esta idea. No descubre bucles de forma semántica como lo haría una persona, pero construye nuevas variables que resumen las direcciones de mayor variabilidad de los datos.</span>
+<span id="cb21-21"><a href="#cb21-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-22"><a href="#cb21-22" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb21-23"><a href="#cb21-23" aria-hidden="true" tabindex="-1"></a>PCA rota el sistema de coordenadas para ordenar direcciones de máxima variabilidad, pero no garantiza que esas direcciones sean las más relevantes para cualquier pregunta aplicada.</span>
+<span id="cb21-24"><a href="#cb21-24" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb21-25"><a href="#cb21-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-26"><a href="#cb21-26" aria-hidden="true" tabindex="-1"></a><span class="fu">## Una imagen geométrica sencilla</span></span>
+<span id="cb21-27"><a href="#cb21-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-28"><a href="#cb21-28" aria-hidden="true" tabindex="-1"></a>Si una nube de puntos en dos dimensiones está alargada, no ocupa todo el plano por igual. Hay una dirección principal donde varía mucho y otra dirección perpendicular donde varía poco. PCA busca esas direcciones.</span>
+<span id="cb21-29"><a href="#cb21-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-32"><a href="#cb21-32" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb21-33"><a href="#cb21-33" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb21-34"><a href="#cb21-34" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="dv">120</span></span>
+<span id="cb21-35"><a href="#cb21-35" aria-hidden="true" tabindex="-1"></a>z1 <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n, <span class="at">sd =</span> <span class="fl">2.5</span>)</span>
+<span id="cb21-36"><a href="#cb21-36" aria-hidden="true" tabindex="-1"></a>z2 <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n, <span class="at">sd =</span> <span class="fl">0.35</span>)</span>
+<span id="cb21-37"><a href="#cb21-37" aria-hidden="true" tabindex="-1"></a>theta <span class="ot">&lt;-</span> pi <span class="sc">/</span> <span class="dv">5</span></span>
+<span id="cb21-38"><a href="#cb21-38" aria-hidden="true" tabindex="-1"></a>R <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">c</span>(<span class="fu">cos</span>(theta), <span class="sc">-</span><span class="fu">sin</span>(theta), <span class="fu">sin</span>(theta), <span class="fu">cos</span>(theta)), <span class="at">nrow =</span> <span class="dv">2</span>)</span>
+<span id="cb21-39"><a href="#cb21-39" aria-hidden="true" tabindex="-1"></a>X_sim <span class="ot">&lt;-</span> <span class="fu">cbind</span>(z1, z2) <span class="sc">%*%</span> <span class="fu">t</span>(R)</span>
+<span id="cb21-40"><a href="#cb21-40" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(X_sim) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"x1"</span>, <span class="st">"x2"</span>)</span>
+<span id="cb21-41"><a href="#cb21-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-42"><a href="#cb21-42" aria-hidden="true" tabindex="-1"></a>pca_sim <span class="ot">&lt;-</span> <span class="fu">prcomp</span>(X_sim, <span class="at">center =</span> <span class="cn">TRUE</span>, <span class="at">scale. =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb21-43"><a href="#cb21-43" aria-hidden="true" tabindex="-1"></a>componentes_sim <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb21-44"><a href="#cb21-44" aria-hidden="true" tabindex="-1"></a>  <span class="at">componente =</span> <span class="fu">c</span>(<span class="st">"PC1"</span>, <span class="st">"PC2"</span>),</span>
+<span id="cb21-45"><a href="#cb21-45" aria-hidden="true" tabindex="-1"></a>  <span class="at">x =</span> <span class="fu">c</span>(pca_sim<span class="sc">$</span>rotation[<span class="dv">1</span>, <span class="dv">1</span>] <span class="sc">*</span> <span class="dv">4</span>, pca_sim<span class="sc">$</span>rotation[<span class="dv">1</span>, <span class="dv">2</span>] <span class="sc">*</span> <span class="dv">2</span>),</span>
+<span id="cb21-46"><a href="#cb21-46" aria-hidden="true" tabindex="-1"></a>  <span class="at">y =</span> <span class="fu">c</span>(pca_sim<span class="sc">$</span>rotation[<span class="dv">2</span>, <span class="dv">1</span>] <span class="sc">*</span> <span class="dv">4</span>, pca_sim<span class="sc">$</span>rotation[<span class="dv">2</span>, <span class="dv">2</span>] <span class="sc">*</span> <span class="dv">2</span>)</span>
+<span id="cb21-47"><a href="#cb21-47" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb21-48"><a href="#cb21-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-49"><a href="#cb21-49" aria-hidden="true" tabindex="-1"></a><span class="fu">as_tibble</span>(X_sim) <span class="sc">|&gt;</span></span>
+<span id="cb21-50"><a href="#cb21-50" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(x1, x2)) <span class="sc">+</span></span>
+<span id="cb21-51"><a href="#cb21-51" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">color =</span> <span class="st">"gray40"</span>, <span class="at">alpha =</span> <span class="fl">0.85</span>) <span class="sc">+</span></span>
+<span id="cb21-52"><a href="#cb21-52" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_segment</span>(</span>
+<span id="cb21-53"><a href="#cb21-53" aria-hidden="true" tabindex="-1"></a>    <span class="at">data =</span> componentes_sim,</span>
+<span id="cb21-54"><a href="#cb21-54" aria-hidden="true" tabindex="-1"></a>    <span class="fu">aes</span>(<span class="at">x =</span> <span class="dv">0</span>, <span class="at">y =</span> <span class="dv">0</span>, <span class="at">xend =</span> x, <span class="at">yend =</span> y, <span class="at">color =</span> componente),</span>
+<span id="cb21-55"><a href="#cb21-55" aria-hidden="true" tabindex="-1"></a>    <span class="at">arrow =</span> grid<span class="sc">::</span><span class="fu">arrow</span>(<span class="at">length =</span> grid<span class="sc">::</span><span class="fu">unit</span>(<span class="fl">0.18</span>, <span class="st">"cm"</span>)),</span>
+<span id="cb21-56"><a href="#cb21-56" aria-hidden="true" tabindex="-1"></a>    <span class="at">linewidth =</span> <span class="fl">1.2</span>,</span>
+<span id="cb21-57"><a href="#cb21-57" aria-hidden="true" tabindex="-1"></a>    <span class="at">inherit.aes =</span> <span class="cn">FALSE</span></span>
+<span id="cb21-58"><a href="#cb21-58" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb21-59"><a href="#cb21-59" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_equal</span>() <span class="sc">+</span></span>
+<span id="cb21-60"><a href="#cb21-60" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Una nube alargada no llena el plano"</span>, <span class="at">x =</span> <span class="st">"x1"</span>, <span class="at">y =</span> <span class="st">"x2"</span>, <span class="at">color =</span> <span class="st">"Componente"</span>) <span class="sc">+</span></span>
+<span id="cb21-61"><a href="#cb21-61" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span>
+<span id="cb21-62"><a href="#cb21-62" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb21-63"><a href="#cb21-63" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-64"><a href="#cb21-64" aria-hidden="true" tabindex="-1"></a>La primera componente apunta en la dirección donde la nube se extiende más. La segunda es perpendicular y recoge la variabilidad restante. Si proyectamos los puntos sobre la primera dirección, perdemos información, pero conservamos gran parte de la estructura.</span>
+<span id="cb21-65"><a href="#cb21-65" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-66"><a href="#cb21-66" aria-hidden="true" tabindex="-1"></a><span class="fu">## Qué hace PCA</span></span>
+<span id="cb21-67"><a href="#cb21-67" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-68"><a href="#cb21-68" aria-hidden="true" tabindex="-1"></a>PCA construye componentes $Z_1, Z_2, \ldots, Z_p$ como combinaciones lineales de las variables originales:</span>
+<span id="cb21-69"><a href="#cb21-69" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-70"><a href="#cb21-70" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb21-71"><a href="#cb21-71" aria-hidden="true" tabindex="-1"></a>Z_m = a_{1m}X_1 + a_{2m}X_2 + \cdots + a_{pm}X_p.</span>
+<span id="cb21-72"><a href="#cb21-72" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb21-73"><a href="#cb21-73" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-74"><a href="#cb21-74" aria-hidden="true" tabindex="-1"></a>El vector $a_m=(a_{1m},\ldots,a_{pm})$ contiene las cargas de la componente $m$. Para evitar que la varianza crezca artificialmente solo por multiplicar coeficientes, se exige:</span>
+<span id="cb21-75"><a href="#cb21-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-76"><a href="#cb21-76" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb21-77"><a href="#cb21-77" aria-hidden="true" tabindex="-1"></a>\lVert a_m \rVert^2 = a_m^\top a_m = 1.</span>
+<span id="cb21-78"><a href="#cb21-78" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb21-79"><a href="#cb21-79" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-80"><a href="#cb21-80" aria-hidden="true" tabindex="-1"></a>La primera componente busca la dirección de máxima varianza:</span>
+<span id="cb21-81"><a href="#cb21-81" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-82"><a href="#cb21-82" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb21-83"><a href="#cb21-83" aria-hidden="true" tabindex="-1"></a>a_1 = \arg\max_{\lVert a \rVert = 1} Var(Xa).</span>
+<span id="cb21-84"><a href="#cb21-84" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb21-85"><a href="#cb21-85" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-86"><a href="#cb21-86" aria-hidden="true" tabindex="-1"></a>La segunda componente busca la mayor varianza posible entre las direcciones ortogonales a la primera. Y así sucesivamente.</span>
+<span id="cb21-87"><a href="#cb21-87" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-88"><a href="#cb21-88" aria-hidden="true" tabindex="-1"></a><span class="fu">## Centrado, escalado y matriz de covarianzas</span></span>
+<span id="cb21-89"><a href="#cb21-89" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-90"><a href="#cb21-90" aria-hidden="true" tabindex="-1"></a>PCA se aplica normalmente sobre datos centrados. Si $X$ es la matriz de datos, centramos cada variable restando su media. La matriz de covarianzas de los datos centrados es:</span>
+<span id="cb21-91"><a href="#cb21-91" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-92"><a href="#cb21-92" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb21-93"><a href="#cb21-93" aria-hidden="true" tabindex="-1"></a>S=\frac{1}{n-1}X^\top X.</span>
+<span id="cb21-94"><a href="#cb21-94" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb21-95"><a href="#cb21-95" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-96"><a href="#cb21-96" aria-hidden="true" tabindex="-1"></a>Si las variables tienen unidades distintas, PCA suele hacerse sobre variables estandarizadas. Esto equivale a usar la matriz de correlaciones en lugar de la matriz de covarianzas.</span>
+<span id="cb21-97"><a href="#cb21-97" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-100"><a href="#cb21-100" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb21-101"><a href="#cb21-101" aria-hidden="true" tabindex="-1"></a>X <span class="ot">&lt;-</span> mtcars[, <span class="fu">c</span>(<span class="st">"mpg"</span>, <span class="st">"disp"</span>, <span class="st">"hp"</span>, <span class="st">"drat"</span>, <span class="st">"wt"</span>, <span class="st">"qsec"</span>)]</span>
+<span id="cb21-102"><a href="#cb21-102" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(<span class="fu">round</span>(<span class="fu">cov</span>(X), <span class="dv">2</span>), <span class="at">caption =</span> <span class="st">"Matriz de covarianzas"</span>)</span>
+<span id="cb21-103"><a href="#cb21-103" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(<span class="fu">round</span>(<span class="fu">cor</span>(X), <span class="dv">2</span>), <span class="at">caption =</span> <span class="st">"Matriz de correlaciones"</span>)</span>
+<span id="cb21-104"><a href="#cb21-104" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb21-105"><a href="#cb21-105" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-106"><a href="#cb21-106" aria-hidden="true" tabindex="-1"></a>La decisión entre covarianzas y correlaciones no es automática. Usar covarianzas conserva las unidades originales; usar correlaciones da el mismo peso inicial a todas las variables estandarizadas.</span>
+<span id="cb21-107"><a href="#cb21-107" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-108"><a href="#cb21-108" aria-hidden="true" tabindex="-1"></a><span class="fu">## Varianza de una componente</span></span>
+<span id="cb21-109"><a href="#cb21-109" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-110"><a href="#cb21-110" aria-hidden="true" tabindex="-1"></a>Si una componente es $Z = Xa$, su varianza es:</span>
+<span id="cb21-111"><a href="#cb21-111" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-112"><a href="#cb21-112" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb21-113"><a href="#cb21-113" aria-hidden="true" tabindex="-1"></a>Var(Z)=Var(Xa)=a^\top S a.</span>
+<span id="cb21-114"><a href="#cb21-114" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb21-115"><a href="#cb21-115" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-116"><a href="#cb21-116" aria-hidden="true" tabindex="-1"></a>Por tanto, PCA busca direcciones unitarias $a$ que hagan grande $a^\top S a$. Las soluciones son los autovectores de $S$, y las varianzas explicadas son los autovalores asociados.</span>
+<span id="cb21-117"><a href="#cb21-117" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-118"><a href="#cb21-118" aria-hidden="true" tabindex="-1"></a>No necesitamos desarrollar aquí toda la demostración algebraica. La idea importante es esta: la matriz $S$ describe cómo varían conjuntamente las variables; sus autovectores señalan direcciones especiales de variación; sus autovalores miden cuánta varianza hay en esas direcciones.</span>
+<span id="cb21-119"><a href="#cb21-119" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-122"><a href="#cb21-122" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb21-123"><a href="#cb21-123" aria-hidden="true" tabindex="-1"></a>Xsc <span class="ot">&lt;-</span> <span class="fu">scale</span>(X)</span>
+<span id="cb21-124"><a href="#cb21-124" aria-hidden="true" tabindex="-1"></a>S <span class="ot">&lt;-</span> <span class="fu">cov</span>(Xsc)</span>
+<span id="cb21-125"><a href="#cb21-125" aria-hidden="true" tabindex="-1"></a>eig <span class="ot">&lt;-</span> <span class="fu">eigen</span>(S)</span>
+<span id="cb21-126"><a href="#cb21-126" aria-hidden="true" tabindex="-1"></a><span class="fu">tibble</span>(<span class="at">componente =</span> <span class="fu">paste0</span>(<span class="st">"PC"</span>, <span class="fu">seq_along</span>(eig<span class="sc">$</span>values)), <span class="at">autovalor =</span> <span class="fu">round</span>(eig<span class="sc">$</span>values, <span class="dv">3</span>)) <span class="sc">|&gt;</span></span>
+<span id="cb21-127"><a href="#cb21-127" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable</span>()</span>
+<span id="cb21-128"><a href="#cb21-128" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(<span class="fu">round</span>(eig<span class="sc">$</span>vectors, <span class="dv">3</span>), <span class="at">caption =</span> <span class="st">"Autovectores"</span>)</span>
+<span id="cb21-129"><a href="#cb21-129" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb21-130"><a href="#cb21-130" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-131"><a href="#cb21-131" aria-hidden="true" tabindex="-1"></a><span class="fu">## Por qué las componentes son ortogonales</span></span>
+<span id="cb21-132"><a href="#cb21-132" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-133"><a href="#cb21-133" aria-hidden="true" tabindex="-1"></a>Las componentes principales están construidas para ser ortogonales entre sí. Si $a_r$ y $a_s$ son dos vectores de carga asociados a autovalores distintos $\lambda_r$ y $\lambda_s$, entonces:</span>
+<span id="cb21-134"><a href="#cb21-134" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-135"><a href="#cb21-135" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb21-136"><a href="#cb21-136" aria-hidden="true" tabindex="-1"></a>S a_r = \lambda_r a_r,</span>
+<span id="cb21-137"><a href="#cb21-137" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb21-138"><a href="#cb21-138" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-139"><a href="#cb21-139" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb21-140"><a href="#cb21-140" aria-hidden="true" tabindex="-1"></a>S a_s = \lambda_s a_s.</span>
+<span id="cb21-141"><a href="#cb21-141" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb21-142"><a href="#cb21-142" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-143"><a href="#cb21-143" aria-hidden="true" tabindex="-1"></a>Como $S$ es simétrica, se cumple que $a_s^\top S a_r = a_r^\top S a_s$. Sustituyendo:</span>
+<span id="cb21-144"><a href="#cb21-144" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-145"><a href="#cb21-145" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb21-146"><a href="#cb21-146" aria-hidden="true" tabindex="-1"></a>\lambda_r a_s^\top a_r = \lambda_s a_r^\top a_s.</span>
+<span id="cb21-147"><a href="#cb21-147" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb21-148"><a href="#cb21-148" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-149"><a href="#cb21-149" aria-hidden="true" tabindex="-1"></a>Como $a_s^\top a_r = a_r^\top a_s$, queda:</span>
+<span id="cb21-150"><a href="#cb21-150" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-151"><a href="#cb21-151" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb21-152"><a href="#cb21-152" aria-hidden="true" tabindex="-1"></a>(\lambda_r-\lambda_s)a_r^\top a_s=0.</span>
+<span id="cb21-153"><a href="#cb21-153" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb21-154"><a href="#cb21-154" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-155"><a href="#cb21-155" aria-hidden="true" tabindex="-1"></a>Si los autovalores son diferentes, $\lambda_r \neq \lambda_s$, entonces necesariamente:</span>
+<span id="cb21-156"><a href="#cb21-156" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-157"><a href="#cb21-157" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb21-158"><a href="#cb21-158" aria-hidden="true" tabindex="-1"></a>a_r^\top a_s=0.</span>
+<span id="cb21-159"><a href="#cb21-159" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb21-160"><a href="#cb21-160" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-161"><a href="#cb21-161" aria-hidden="true" tabindex="-1"></a>Es decir, las direcciones son ortogonales. Esta ortogonalidad significa que PCA evita repetir la misma dirección de variabilidad: cada componente añade una dirección nueva, perpendicular a las anteriores.</span>
+<span id="cb21-162"><a href="#cb21-162" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-163"><a href="#cb21-163" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb21-164"><a href="#cb21-164" aria-hidden="true" tabindex="-1"></a>Cuando hay autovalores iguales, la dirección exacta dentro del subespacio asociado puede no ser única. En aplicaciones introductorias, lo importante es que el subespacio retenido sigue representando la misma variabilidad.</span>
+<span id="cb21-165"><a href="#cb21-165" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb21-166"><a href="#cb21-166" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-167"><a href="#cb21-167" aria-hidden="true" tabindex="-1"></a><span class="fu">## Varianza total y traza</span></span>
+<span id="cb21-168"><a href="#cb21-168" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-169"><a href="#cb21-169" aria-hidden="true" tabindex="-1"></a>La varianza total de un conjunto de variables centradas se define como la suma de las varianzas de las variables originales:</span>
+<span id="cb21-170"><a href="#cb21-170" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-171"><a href="#cb21-171" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb21-172"><a href="#cb21-172" aria-hidden="true" tabindex="-1"></a>Var_{total} = Var(X_1)+\cdots+Var(X_p).</span>
+<span id="cb21-173"><a href="#cb21-173" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb21-174"><a href="#cb21-174" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-175"><a href="#cb21-175" aria-hidden="true" tabindex="-1"></a>En la matriz de covarianzas, esas varianzas están en la diagonal. Por tanto:</span>
+<span id="cb21-176"><a href="#cb21-176" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-177"><a href="#cb21-177" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb21-178"><a href="#cb21-178" aria-hidden="true" tabindex="-1"></a>Var_{total} = tr(S).</span>
+<span id="cb21-179"><a href="#cb21-179" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb21-180"><a href="#cb21-180" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-181"><a href="#cb21-181" aria-hidden="true" tabindex="-1"></a>La traza de una matriz cuadrada es la suma de su diagonal. En PCA, las componentes principales equivalen a rotar el sistema de coordenadas mediante una matriz ortogonal de cargas $A$. La matriz de covarianzas de las componentes es:</span>
+<span id="cb21-182"><a href="#cb21-182" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-183"><a href="#cb21-183" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb21-184"><a href="#cb21-184" aria-hidden="true" tabindex="-1"></a>S_Z = A^\top S A.</span>
+<span id="cb21-185"><a href="#cb21-185" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb21-186"><a href="#cb21-186" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-187"><a href="#cb21-187" aria-hidden="true" tabindex="-1"></a>Como $A$ es una rotación ortogonal, no estira ni comprime el espacio; solo cambia los ejes. La varianza total se conserva:</span>
+<span id="cb21-188"><a href="#cb21-188" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-189"><a href="#cb21-189" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb21-190"><a href="#cb21-190" aria-hidden="true" tabindex="-1"></a>tr(S_Z)=tr(A^\top S A)=tr(S).</span>
+<span id="cb21-191"><a href="#cb21-191" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb21-192"><a href="#cb21-192" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-193"><a href="#cb21-193" aria-hidden="true" tabindex="-1"></a>Además, en los ejes principales, la matriz $S_Z$ queda diagonal y sus entradas diagonales son los autovalores:</span>
+<span id="cb21-194"><a href="#cb21-194" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-195"><a href="#cb21-195" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb21-196"><a href="#cb21-196" aria-hidden="true" tabindex="-1"></a>tr(S)=\lambda_1+\lambda_2+\cdots+\lambda_p.</span>
+<span id="cb21-197"><a href="#cb21-197" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb21-198"><a href="#cb21-198" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-199"><a href="#cb21-199" aria-hidden="true" tabindex="-1"></a>Por eso podemos hablar de proporción de varianza explicada por la componente $m$:</span>
+<span id="cb21-200"><a href="#cb21-200" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-201"><a href="#cb21-201" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb21-202"><a href="#cb21-202" aria-hidden="true" tabindex="-1"></a>\frac{\lambda_m}{\lambda_1+\cdots+\lambda_p}.</span>
+<span id="cb21-203"><a href="#cb21-203" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb21-204"><a href="#cb21-204" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-207"><a href="#cb21-207" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb21-208"><a href="#cb21-208" aria-hidden="true" tabindex="-1"></a>var_total_original <span class="ot">&lt;-</span> <span class="fu">sum</span>(<span class="fu">diag</span>(S))</span>
+<span id="cb21-209"><a href="#cb21-209" aria-hidden="true" tabindex="-1"></a>var_total_componentes <span class="ot">&lt;-</span> <span class="fu">sum</span>(eig<span class="sc">$</span>values)</span>
+<span id="cb21-210"><a href="#cb21-210" aria-hidden="true" tabindex="-1"></a><span class="fu">c</span>(</span>
+<span id="cb21-211"><a href="#cb21-211" aria-hidden="true" tabindex="-1"></a>  <span class="at">traza_covarianzas =</span> var_total_original,</span>
+<span id="cb21-212"><a href="#cb21-212" aria-hidden="true" tabindex="-1"></a>  <span class="at">suma_autovalores =</span> var_total_componentes</span>
+<span id="cb21-213"><a href="#cb21-213" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span></span>
+<span id="cb21-214"><a href="#cb21-214" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as.list</span>() <span class="sc">|&gt;</span></span>
+<span id="cb21-215"><a href="#cb21-215" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as_tibble</span>() <span class="sc">|&gt;</span></span>
+<span id="cb21-216"><a href="#cb21-216" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable</span>()</span>
+<span id="cb21-217"><a href="#cb21-217" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb21-218"><a href="#cb21-218" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-219"><a href="#cb21-219" aria-hidden="true" tabindex="-1"></a>La igualdad numérica confirma la idea: PCA redistribuye la misma varianza total entre ejes nuevos ordenados de mayor a menor importancia.</span>
+<span id="cb21-220"><a href="#cb21-220" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-221"><a href="#cb21-221" aria-hidden="true" tabindex="-1"></a><span class="fu">## PCA con `prcomp()`</span></span>
+<span id="cb21-222"><a href="#cb21-222" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-223"><a href="#cb21-223" aria-hidden="true" tabindex="-1"></a>En R, <span class="in">`prcomp()`</span> calcula PCA de forma estable. Con <span class="in">`scale. = TRUE`</span> usamos variables estandarizadas.</span>
+<span id="cb21-224"><a href="#cb21-224" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-227"><a href="#cb21-227" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb21-228"><a href="#cb21-228" aria-hidden="true" tabindex="-1"></a>pca_mtcars <span class="ot">&lt;-</span> <span class="fu">prcomp</span>(X, <span class="at">center =</span> <span class="cn">TRUE</span>, <span class="at">scale. =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb21-229"><a href="#cb21-229" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(<span class="fu">summary</span>(pca_mtcars)<span class="sc">$</span>importance, <span class="at">digits =</span> <span class="dv">3</span>)</span>
+<span id="cb21-230"><a href="#cb21-230" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(<span class="fu">round</span>(pca_mtcars<span class="sc">$</span>rotation, <span class="dv">3</span>), <span class="at">caption =</span> <span class="st">"Cargas"</span>)</span>
+<span id="cb21-231"><a href="#cb21-231" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb21-232"><a href="#cb21-232" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-233"><a href="#cb21-233" aria-hidden="true" tabindex="-1"></a>Los elementos principales del resultado son:</span>
+<span id="cb21-234"><a href="#cb21-234" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-235"><a href="#cb21-235" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`rotation`</span>: cargas o direcciones de las componentes;</span>
+<span id="cb21-236"><a href="#cb21-236" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`x`</span>: scores, coordenadas de los individuos;</span>
+<span id="cb21-237"><a href="#cb21-237" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`sdev`</span>: desviaciones típicas de las componentes;</span>
+<span id="cb21-238"><a href="#cb21-238" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`sdev^2`</span>: varianzas explicadas.</span>
+<span id="cb21-239"><a href="#cb21-239" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-240"><a href="#cb21-240" aria-hidden="true" tabindex="-1"></a><span class="fu">## Scores y loadings</span></span>
+<span id="cb21-241"><a href="#cb21-241" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-242"><a href="#cb21-242" aria-hidden="true" tabindex="-1"></a>Los **loadings** indican cómo se construye cada componente a partir de las variables originales. Los **scores** son las coordenadas de cada individuo en el nuevo sistema.</span>
+<span id="cb21-243"><a href="#cb21-243" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-244"><a href="#cb21-244" aria-hidden="true" tabindex="-1"></a>Si $A$ es la matriz de cargas, los scores se obtienen como:</span>
+<span id="cb21-245"><a href="#cb21-245" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-246"><a href="#cb21-246" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb21-247"><a href="#cb21-247" aria-hidden="true" tabindex="-1"></a>Z = X A.</span>
+<span id="cb21-248"><a href="#cb21-248" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb21-249"><a href="#cb21-249" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-250"><a href="#cb21-250" aria-hidden="true" tabindex="-1"></a>En datos centrados y escalados, <span class="in">`prcomp()`</span> aplica esa transformación internamente.</span>
+<span id="cb21-251"><a href="#cb21-251" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-254"><a href="#cb21-254" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb21-255"><a href="#cb21-255" aria-hidden="true" tabindex="-1"></a>scores <span class="ot">&lt;-</span> <span class="fu">as.data.frame</span>(pca_mtcars<span class="sc">$</span>x)</span>
+<span id="cb21-256"><a href="#cb21-256" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(<span class="fu">round</span>(scores[, <span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>], <span class="dv">2</span>)) <span class="sc">|&gt;</span></span>
+<span id="cb21-257"><a href="#cb21-257" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable</span>()</span>
+<span id="cb21-258"><a href="#cb21-258" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb21-259"><a href="#cb21-259" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-260"><a href="#cb21-260" aria-hidden="true" tabindex="-1"></a><span class="fu">## Varianza explicada y scree plot</span></span>
+<span id="cb21-261"><a href="#cb21-261" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-264"><a href="#cb21-264" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb21-265"><a href="#cb21-265" aria-hidden="true" tabindex="-1"></a>var_exp <span class="ot">&lt;-</span> pca_mtcars<span class="sc">$</span>sdev<span class="sc">^</span><span class="dv">2</span> <span class="sc">/</span> <span class="fu">sum</span>(pca_mtcars<span class="sc">$</span>sdev<span class="sc">^</span><span class="dv">2</span>)</span>
+<span id="cb21-266"><a href="#cb21-266" aria-hidden="true" tabindex="-1"></a><span class="fu">tibble</span>(</span>
+<span id="cb21-267"><a href="#cb21-267" aria-hidden="true" tabindex="-1"></a>  <span class="at">componente =</span> <span class="fu">factor</span>(<span class="fu">paste0</span>(<span class="st">"PC"</span>, <span class="fu">seq_along</span>(var_exp)), <span class="at">levels =</span> <span class="fu">paste0</span>(<span class="st">"PC"</span>, <span class="fu">seq_along</span>(var_exp))),</span>
+<span id="cb21-268"><a href="#cb21-268" aria-hidden="true" tabindex="-1"></a>  <span class="at">varianza =</span> var_exp</span>
+<span id="cb21-269"><a href="#cb21-269" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span></span>
+<span id="cb21-270"><a href="#cb21-270" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(componente, varianza, <span class="at">group =</span> <span class="dv">1</span>)) <span class="sc">+</span></span>
+<span id="cb21-271"><a href="#cb21-271" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>(<span class="at">fill =</span> <span class="st">"#4c78a8"</span>, <span class="at">alpha =</span> <span class="fl">0.8</span>) <span class="sc">+</span></span>
+<span id="cb21-272"><a href="#cb21-272" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">color =</span> <span class="st">"#222222"</span>) <span class="sc">+</span></span>
+<span id="cb21-273"><a href="#cb21-273" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">size =</span> <span class="dv">2</span>) <span class="sc">+</span></span>
+<span id="cb21-274"><a href="#cb21-274" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Varianza explicada"</span>, <span class="at">x =</span> <span class="st">"Componente"</span>, <span class="at">y =</span> <span class="st">"Proporción de varianza"</span>) <span class="sc">+</span></span>
+<span id="cb21-275"><a href="#cb21-275" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span>
+<span id="cb21-276"><a href="#cb21-276" aria-hidden="true" tabindex="-1"></a><span class="fu">tibble</span>(<span class="at">componente =</span> <span class="fu">paste0</span>(<span class="st">"PC"</span>, <span class="fu">seq_along</span>(var_exp)), <span class="at">acumulada =</span> <span class="fu">round</span>(<span class="fu">cumsum</span>(var_exp), <span class="dv">3</span>)) <span class="sc">|&gt;</span></span>
+<span id="cb21-277"><a href="#cb21-277" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable</span>()</span>
+<span id="cb21-278"><a href="#cb21-278" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb21-279"><a href="#cb21-279" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-280"><a href="#cb21-280" aria-hidden="true" tabindex="-1"></a>El número de componentes no debe elegirse solo por una regla mecánica. Hay que combinar:</span>
+<span id="cb21-281"><a href="#cb21-281" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-282"><a href="#cb21-282" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>proporción de varianza explicada;</span>
+<span id="cb21-283"><a href="#cb21-283" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>forma del scree plot;</span>
+<span id="cb21-284"><a href="#cb21-284" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>interpretabilidad de los ejes;</span>
+<span id="cb21-285"><a href="#cb21-285" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>objetivo posterior del análisis;</span>
+<span id="cb21-286"><a href="#cb21-286" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>coste de perder información.</span>
+<span id="cb21-287"><a href="#cb21-287" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-288"><a href="#cb21-288" aria-hidden="true" tabindex="-1"></a><span class="fu">## Interpretación de individuos</span></span>
+<span id="cb21-289"><a href="#cb21-289" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-292"><a href="#cb21-292" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb21-293"><a href="#cb21-293" aria-hidden="true" tabindex="-1"></a>scores <span class="sc">|&gt;</span></span>
+<span id="cb21-294"><a href="#cb21-294" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">transmision =</span> <span class="fu">factor</span>(mtcars<span class="sc">$</span>am, <span class="at">labels =</span> <span class="fu">c</span>(<span class="st">"automatico"</span>, <span class="st">"manual"</span>))) <span class="sc">|&gt;</span></span>
+<span id="cb21-295"><a href="#cb21-295" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(PC1, PC2, <span class="at">color =</span> transmision)) <span class="sc">+</span></span>
+<span id="cb21-296"><a href="#cb21-296" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">size =</span> <span class="dv">2</span>, <span class="at">alpha =</span> <span class="fl">0.85</span>) <span class="sc">+</span></span>
+<span id="cb21-297"><a href="#cb21-297" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Individuos en el plano PCA"</span>, <span class="at">color =</span> <span class="st">"Transmisión"</span>) <span class="sc">+</span></span>
+<span id="cb21-298"><a href="#cb21-298" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span>
+<span id="cb21-299"><a href="#cb21-299" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb21-300"><a href="#cb21-300" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-301"><a href="#cb21-301" aria-hidden="true" tabindex="-1"></a>Los puntos cercanos tienen perfiles parecidos en las variables activas, siempre dentro de la calidad de representación del plano mostrado. Si los dos primeros componentes explican poca varianza, las proximidades del plano pueden ser engañosas.</span>
+<span id="cb21-302"><a href="#cb21-302" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-303"><a href="#cb21-303" aria-hidden="true" tabindex="-1"></a><span class="fu">## Interpretación de variables</span></span>
+<span id="cb21-304"><a href="#cb21-304" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-305"><a href="#cb21-305" aria-hidden="true" tabindex="-1"></a>Las cargas indican qué variables contribuyen a cada eje.</span>
+<span id="cb21-306"><a href="#cb21-306" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-309"><a href="#cb21-309" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb21-310"><a href="#cb21-310" aria-hidden="true" tabindex="-1"></a>load <span class="ot">&lt;-</span> pca_mtcars<span class="sc">$</span>rotation[, <span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>]</span>
+<span id="cb21-311"><a href="#cb21-311" aria-hidden="true" tabindex="-1"></a><span class="fu">as_tibble</span>(load, <span class="at">rownames =</span> <span class="st">"variable"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb21-312"><a href="#cb21-312" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(PC1, PC2, <span class="at">label =</span> variable)) <span class="sc">+</span></span>
+<span id="cb21-313"><a href="#cb21-313" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">linetype =</span> <span class="st">"dashed"</span>, <span class="at">color =</span> <span class="st">"gray60"</span>) <span class="sc">+</span></span>
+<span id="cb21-314"><a href="#cb21-314" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="dv">0</span>, <span class="at">linetype =</span> <span class="st">"dashed"</span>, <span class="at">color =</span> <span class="st">"gray60"</span>) <span class="sc">+</span></span>
+<span id="cb21-315"><a href="#cb21-315" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_segment</span>(<span class="fu">aes</span>(<span class="at">x =</span> <span class="dv">0</span>, <span class="at">y =</span> <span class="dv">0</span>, <span class="at">xend =</span> PC1, <span class="at">yend =</span> PC2), <span class="at">arrow =</span> grid<span class="sc">::</span><span class="fu">arrow</span>(<span class="at">length =</span> grid<span class="sc">::</span><span class="fu">unit</span>(<span class="fl">0.15</span>, <span class="st">"cm"</span>))) <span class="sc">+</span></span>
+<span id="cb21-316"><a href="#cb21-316" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_text</span>(<span class="at">nudge_y =</span> <span class="fl">0.05</span>) <span class="sc">+</span></span>
+<span id="cb21-317"><a href="#cb21-317" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_equal</span>(<span class="at">xlim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">1</span>, <span class="dv">1</span>), <span class="at">ylim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">1</span>, <span class="dv">1</span>)) <span class="sc">+</span></span>
+<span id="cb21-318"><a href="#cb21-318" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Cargas de variables"</span>) <span class="sc">+</span></span>
+<span id="cb21-319"><a href="#cb21-319" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span>
+<span id="cb21-320"><a href="#cb21-320" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb21-321"><a href="#cb21-321" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-322"><a href="#cb21-322" aria-hidden="true" tabindex="-1"></a>Variables con flechas próximas tienden a estar correlacionadas. Flechas opuestas sugieren asociación negativa. Flechas casi perpendiculares sugieren asociación lineal débil en el plano representado.</span>
+<span id="cb21-323"><a href="#cb21-323" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-324"><a href="#cb21-324" aria-hidden="true" tabindex="-1"></a>El signo de una componente es arbitrario: si multiplicamos todas sus cargas y scores por $-1$, la información no cambia. Por eso no debe interpretarse el signo de forma aislada, sino la oposición entre variables y la posición relativa de individuos.</span>
+<span id="cb21-325"><a href="#cb21-325" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-326"><a href="#cb21-326" aria-hidden="true" tabindex="-1"></a><span class="fu">## Biplot, contribuciones y cos²</span></span>
+<span id="cb21-327"><a href="#cb21-327" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-330"><a href="#cb21-330" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb21-331"><a href="#cb21-331" aria-hidden="true" tabindex="-1"></a>biplot_scores <span class="ot">&lt;-</span> scores <span class="sc">|&gt;</span></span>
+<span id="cb21-332"><a href="#cb21-332" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">transmision =</span> <span class="fu">factor</span>(mtcars<span class="sc">$</span>am, <span class="at">labels =</span> <span class="fu">c</span>(<span class="st">"automatico"</span>, <span class="st">"manual"</span>)))</span>
+<span id="cb21-333"><a href="#cb21-333" aria-hidden="true" tabindex="-1"></a>biplot_loadings <span class="ot">&lt;-</span> <span class="fu">as_tibble</span>(load, <span class="at">rownames =</span> <span class="st">"variable"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb21-334"><a href="#cb21-334" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">PC1 =</span> PC1 <span class="sc">*</span> <span class="fu">max</span>(<span class="fu">abs</span>(biplot_scores<span class="sc">$</span>PC1)), <span class="at">PC2 =</span> PC2 <span class="sc">*</span> <span class="fu">max</span>(<span class="fu">abs</span>(biplot_scores<span class="sc">$</span>PC2)))</span>
+<span id="cb21-335"><a href="#cb21-335" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-336"><a href="#cb21-336" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(biplot_scores, <span class="fu">aes</span>(PC1, PC2, <span class="at">color =</span> transmision)) <span class="sc">+</span></span>
+<span id="cb21-337"><a href="#cb21-337" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">alpha =</span> <span class="fl">0.65</span>) <span class="sc">+</span></span>
+<span id="cb21-338"><a href="#cb21-338" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_segment</span>(</span>
+<span id="cb21-339"><a href="#cb21-339" aria-hidden="true" tabindex="-1"></a>    <span class="at">data =</span> biplot_loadings,</span>
+<span id="cb21-340"><a href="#cb21-340" aria-hidden="true" tabindex="-1"></a>    <span class="fu">aes</span>(<span class="at">x =</span> <span class="dv">0</span>, <span class="at">y =</span> <span class="dv">0</span>, <span class="at">xend =</span> PC1, <span class="at">yend =</span> PC2),</span>
+<span id="cb21-341"><a href="#cb21-341" aria-hidden="true" tabindex="-1"></a>    <span class="at">inherit.aes =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb21-342"><a href="#cb21-342" aria-hidden="true" tabindex="-1"></a>    <span class="at">arrow =</span> grid<span class="sc">::</span><span class="fu">arrow</span>(<span class="at">length =</span> grid<span class="sc">::</span><span class="fu">unit</span>(<span class="fl">0.15</span>, <span class="st">"cm"</span>)),</span>
+<span id="cb21-343"><a href="#cb21-343" aria-hidden="true" tabindex="-1"></a>    <span class="at">color =</span> <span class="st">"black"</span></span>
+<span id="cb21-344"><a href="#cb21-344" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb21-345"><a href="#cb21-345" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_text</span>(</span>
+<span id="cb21-346"><a href="#cb21-346" aria-hidden="true" tabindex="-1"></a>    <span class="at">data =</span> biplot_loadings,</span>
+<span id="cb21-347"><a href="#cb21-347" aria-hidden="true" tabindex="-1"></a>    <span class="fu">aes</span>(PC1, PC2, <span class="at">label =</span> variable),</span>
+<span id="cb21-348"><a href="#cb21-348" aria-hidden="true" tabindex="-1"></a>    <span class="at">inherit.aes =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb21-349"><a href="#cb21-349" aria-hidden="true" tabindex="-1"></a>    <span class="at">nudge_y =</span> <span class="fl">0.2</span></span>
+<span id="cb21-350"><a href="#cb21-350" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb21-351"><a href="#cb21-351" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Biplot PCA de mtcars"</span>, <span class="at">color =</span> <span class="st">"Transmisión"</span>) <span class="sc">+</span></span>
+<span id="cb21-352"><a href="#cb21-352" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span>
+<span id="cb21-353"><a href="#cb21-353" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb21-354"><a href="#cb21-354" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-355"><a href="#cb21-355" aria-hidden="true" tabindex="-1"></a>El cos² mide calidad de representación de un punto o variable en los ejes retenidos. Para una variable, un cos² alto en el plano PC1-PC2 indica que la variable está bien representada en ese plano.</span>
+<span id="cb21-356"><a href="#cb21-356" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-359"><a href="#cb21-359" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb21-360"><a href="#cb21-360" aria-hidden="true" tabindex="-1"></a>coord_var <span class="ot">&lt;-</span> pca_mtcars<span class="sc">$</span>rotation[, <span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>]</span>
+<span id="cb21-361"><a href="#cb21-361" aria-hidden="true" tabindex="-1"></a>cos2_var <span class="ot">&lt;-</span> coord_var<span class="sc">^</span><span class="dv">2</span></span>
+<span id="cb21-362"><a href="#cb21-362" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(<span class="fu">round</span>(cos2_var, <span class="dv">3</span>))</span>
+<span id="cb21-363"><a href="#cb21-363" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb21-364"><a href="#cb21-364" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-365"><a href="#cb21-365" aria-hidden="true" tabindex="-1"></a>Las contribuciones indican cuánto aporta cada variable o individuo a la construcción de un eje. Una variable puede estar bien representada y, además, contribuir mucho a una componente; ambas ideas están relacionadas, pero no son idénticas.</span>
+<span id="cb21-366"><a href="#cb21-366" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-367"><a href="#cb21-367" aria-hidden="true" tabindex="-1"></a><span class="fu">## PCA sobre covarianzas frente a correlaciones</span></span>
+<span id="cb21-368"><a href="#cb21-368" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-369"><a href="#cb21-369" aria-hidden="true" tabindex="-1"></a>Veamos <span class="in">`mtcars`</span>. Las variables tienen escalas diferentes, así que el PCA sin escalar queda dominado por variables con mayor varianza.</span>
+<span id="cb21-370"><a href="#cb21-370" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-373"><a href="#cb21-373" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb21-374"><a href="#cb21-374" aria-hidden="true" tabindex="-1"></a>pca_us_cov <span class="ot">&lt;-</span> <span class="fu">prcomp</span>(X, <span class="at">center =</span> <span class="cn">TRUE</span>, <span class="at">scale. =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb21-375"><a href="#cb21-375" aria-hidden="true" tabindex="-1"></a>pca_us_cor <span class="ot">&lt;-</span> <span class="fu">prcomp</span>(X, <span class="at">center =</span> <span class="cn">TRUE</span>, <span class="at">scale. =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb21-376"><a href="#cb21-376" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-377"><a href="#cb21-377" aria-hidden="true" tabindex="-1"></a><span class="fu">tibble</span>(</span>
+<span id="cb21-378"><a href="#cb21-378" aria-hidden="true" tabindex="-1"></a>  <span class="at">componente =</span> <span class="fu">colnames</span>(<span class="fu">summary</span>(pca_us_cov)<span class="sc">$</span>importance),</span>
+<span id="cb21-379"><a href="#cb21-379" aria-hidden="true" tabindex="-1"></a>  <span class="at">covarianzas =</span> <span class="fu">round</span>(<span class="fu">summary</span>(pca_us_cov)<span class="sc">$</span>importance[<span class="dv">2</span>, ], <span class="dv">3</span>),</span>
+<span id="cb21-380"><a href="#cb21-380" aria-hidden="true" tabindex="-1"></a>  <span class="at">correlaciones =</span> <span class="fu">round</span>(<span class="fu">summary</span>(pca_us_cor)<span class="sc">$</span>importance[<span class="dv">2</span>, ], <span class="dv">3</span>)</span>
+<span id="cb21-381"><a href="#cb21-381" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span></span>
+<span id="cb21-382"><a href="#cb21-382" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable</span>(<span class="at">caption =</span> <span class="st">"Varianza explicada"</span>)</span>
+<span id="cb21-383"><a href="#cb21-383" aria-hidden="true" tabindex="-1"></a><span class="fu">tibble</span>(</span>
+<span id="cb21-384"><a href="#cb21-384" aria-hidden="true" tabindex="-1"></a>  <span class="at">variable =</span> <span class="fu">names</span>(pca_us_cov<span class="sc">$</span>rotation[, <span class="dv">1</span>]),</span>
+<span id="cb21-385"><a href="#cb21-385" aria-hidden="true" tabindex="-1"></a>  <span class="at">covarianzas =</span> <span class="fu">round</span>(pca_us_cov<span class="sc">$</span>rotation[, <span class="dv">1</span>], <span class="dv">3</span>),</span>
+<span id="cb21-386"><a href="#cb21-386" aria-hidden="true" tabindex="-1"></a>  <span class="at">correlaciones =</span> <span class="fu">round</span>(pca_us_cor<span class="sc">$</span>rotation[, <span class="dv">1</span>], <span class="dv">3</span>)</span>
+<span id="cb21-387"><a href="#cb21-387" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span></span>
+<span id="cb21-388"><a href="#cb21-388" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable</span>(<span class="at">caption =</span> <span class="st">"Cargas de PC1"</span>)</span>
+<span id="cb21-389"><a href="#cb21-389" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb21-390"><a href="#cb21-390" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-391"><a href="#cb21-391" aria-hidden="true" tabindex="-1"></a>La diferencia no es un error de R: responde a dos preguntas distintas. Sin escalar, las variables con mayor dispersión en sus unidades originales tienen más influencia. Con escalado, todas parten con varianza 1.</span>
+<span id="cb21-392"><a href="#cb21-392" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-393"><a href="#cb21-393" aria-hidden="true" tabindex="-1"></a><span class="fu">## PCA como reducción de dimensión</span></span>
+<span id="cb21-394"><a href="#cb21-394" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-395"><a href="#cb21-395" aria-hidden="true" tabindex="-1"></a>Si retenemos solo las primeras $q$ componentes, con $q &lt; p$, aproximamos los datos mediante:</span>
+<span id="cb21-396"><a href="#cb21-396" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-397"><a href="#cb21-397" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb21-398"><a href="#cb21-398" aria-hidden="true" tabindex="-1"></a>X \approx Z_q A_q^\top.</span>
+<span id="cb21-399"><a href="#cb21-399" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb21-400"><a href="#cb21-400" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-401"><a href="#cb21-401" aria-hidden="true" tabindex="-1"></a>Esta aproximación conserva la parte de la variabilidad asociada a los mayores autovalores y descarta direcciones de menor varianza. En contextos como imágenes, esto puede verse como una compresión lineal: no guardamos todos los píxeles, sino unas pocas coordenadas que resumen patrones dominantes.</span>
+<span id="cb21-402"><a href="#cb21-402" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-405"><a href="#cb21-405" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb21-406"><a href="#cb21-406" aria-hidden="true" tabindex="-1"></a>X_mtcars_scaled <span class="ot">&lt;-</span> <span class="fu">scale</span>(X)</span>
+<span id="cb21-407"><a href="#cb21-407" aria-hidden="true" tabindex="-1"></a>pca_mtcars_full <span class="ot">&lt;-</span> <span class="fu">prcomp</span>(X_mtcars_scaled, <span class="at">center =</span> <span class="cn">FALSE</span>, <span class="at">scale. =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb21-408"><a href="#cb21-408" aria-hidden="true" tabindex="-1"></a>X_aprox_2 <span class="ot">&lt;-</span> pca_mtcars_full<span class="sc">$</span>x[, <span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>] <span class="sc">%*%</span> <span class="fu">t</span>(pca_mtcars_full<span class="sc">$</span>rotation[, <span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>])</span>
+<span id="cb21-409"><a href="#cb21-409" aria-hidden="true" tabindex="-1"></a>error_medio <span class="ot">&lt;-</span> <span class="fu">mean</span>((X_mtcars_scaled <span class="sc">-</span> X_aprox_2)<span class="sc">^</span><span class="dv">2</span>)</span>
+<span id="cb21-410"><a href="#cb21-410" aria-hidden="true" tabindex="-1"></a><span class="fu">tibble</span>(<span class="at">error_medio =</span> <span class="fu">round</span>(error_medio, <span class="dv">4</span>)) <span class="sc">|&gt;</span></span>
+<span id="cb21-411"><a href="#cb21-411" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable</span>()</span>
+<span id="cb21-412"><a href="#cb21-412" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb21-413"><a href="#cb21-413" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-414"><a href="#cb21-414" aria-hidden="true" tabindex="-1"></a>El error de reconstrucción baja al retener más componentes, pero la representación se vuelve menos simple.</span>
+<span id="cb21-415"><a href="#cb21-415" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-416"><a href="#cb21-416" aria-hidden="true" tabindex="-1"></a><span class="fu">## PCA como preprocesamiento</span></span>
+<span id="cb21-417"><a href="#cb21-417" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-418"><a href="#cb21-418" aria-hidden="true" tabindex="-1"></a>PCA puede usarse antes de clustering o clasificación para reducir ruido y colinealidad. Esa reducción también puede eliminar información relevante, por lo que debe justificarse.</span>
+<span id="cb21-419"><a href="#cb21-419" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-422"><a href="#cb21-422" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb21-423"><a href="#cb21-423" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb21-424"><a href="#cb21-424" aria-hidden="true" tabindex="-1"></a>cl_pca <span class="ot">&lt;-</span> <span class="fu">kmeans</span>(pca_mtcars<span class="sc">$</span>x[, <span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>], <span class="at">centers =</span> <span class="dv">3</span>, <span class="at">nstart =</span> <span class="dv">25</span>)</span>
+<span id="cb21-425"><a href="#cb21-425" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(<span class="fu">table</span>(<span class="at">cluster =</span> cl_pca<span class="sc">$</span>cluster, <span class="at">transmision =</span> <span class="fu">factor</span>(mtcars<span class="sc">$</span>am, <span class="at">labels =</span> <span class="fu">c</span>(<span class="st">"automatico"</span>, <span class="st">"manual"</span>))))</span>
+<span id="cb21-426"><a href="#cb21-426" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb21-427"><a href="#cb21-427" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-428"><a href="#cb21-428" aria-hidden="true" tabindex="-1"></a>Aquí usamos solo dos componentes. En <span class="in">`mtcars`</span> puede ayudar a construir grupos de coches, pero las direcciones de máxima varianza no tienen por qué coincidir con las direcciones que separan mejor una etiqueta externa como <span class="in">`am`</span>.</span>
+<span id="cb21-429"><a href="#cb21-429" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-430"><a href="#cb21-430" aria-hidden="true" tabindex="-1"></a><span class="fu">## Limitaciones</span></span>
+<span id="cb21-431"><a href="#cb21-431" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-432"><a href="#cb21-432" aria-hidden="true" tabindex="-1"></a>PCA tiene varias limitaciones:</span>
+<span id="cb21-433"><a href="#cb21-433" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-434"><a href="#cb21-434" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>es lineal;</span>
+<span id="cb21-435"><a href="#cb21-435" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>está pensado para variables numéricas;</span>
+<span id="cb21-436"><a href="#cb21-436" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>maximiza varianza, no separación de grupos ni capacidad predictiva;</span>
+<span id="cb21-437"><a href="#cb21-437" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>puede ser sensible a outliers;</span>
+<span id="cb21-438"><a href="#cb21-438" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>las componentes pueden ser difíciles de interpretar;</span>
+<span id="cb21-439"><a href="#cb21-439" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>una dimensión de baja varianza puede ser importante para una pregunta concreta;</span>
+<span id="cb21-440"><a href="#cb21-440" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>los ejes cambian si cambiamos escalado, variables activas o población analizada.</span>
+<span id="cb21-441"><a href="#cb21-441" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-442"><a href="#cb21-442" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning}</span>
+<span id="cb21-443"><a href="#cb21-443" aria-hidden="true" tabindex="-1"></a>Que una componente explique mucha varianza no implica que sea causal, estable ni sustantivamente importante.</span>
+<span id="cb21-444"><a href="#cb21-444" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb21-445"><a href="#cb21-445" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-446"><a href="#cb21-446" aria-hidden="true" tabindex="-1"></a><span class="fu">## Errores frecuentes</span></span>
+<span id="cb21-447"><a href="#cb21-447" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-448"><a href="#cb21-448" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Aplicar PCA sin centrar los datos.</span>
+<span id="cb21-449"><a href="#cb21-449" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>No escalar variables con unidades muy diferentes.</span>
+<span id="cb21-450"><a href="#cb21-450" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Interpretar el plano PC1-PC2 sin revisar varianza explicada.</span>
+<span id="cb21-451"><a href="#cb21-451" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Creer que las componentes tienen interpretación única y objetiva.</span>
+<span id="cb21-452"><a href="#cb21-452" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Confundir PCA con análisis factorial latente.</span>
+<span id="cb21-453"><a href="#cb21-453" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Usar PCA para separar clases y olvidar que PCA no usa la etiqueta.</span>
+<span id="cb21-454"><a href="#cb21-454" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Interpretar el signo de una componente como si fuera absoluto.</span>
+<span id="cb21-455"><a href="#cb21-455" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-456"><a href="#cb21-456" aria-hidden="true" tabindex="-1"></a><span class="fu">## Resumen del capítulo</span></span>
+<span id="cb21-457"><a href="#cb21-457" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-458"><a href="#cb21-458" aria-hidden="true" tabindex="-1"></a>PCA parte de una idea geométrica: los datos suelen vivir cerca de estructuras de menor dimensión que el espacio original. Construye componentes como combinaciones lineales ortogonales que ordenan la varianza. La varianza total se conserva porque PCA rota los ejes y la varianza total es la traza de la matriz de covarianzas. Interpretar PCA exige revisar escalado, varianza explicada, cargas, scores, cos² y el objetivo aplicado.</span>
+<span id="cb21-459"><a href="#cb21-459" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-460"><a href="#cb21-460" aria-hidden="true" tabindex="-1"></a><span class="fu">## Ejercicios propuestos</span></span>
+<span id="cb21-461"><a href="#cb21-461" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-462"><a href="#cb21-462" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>Aplica PCA a <span class="in">`mtcars`</span> con escalado y comenta los dos primeros componentes.</span>
+<span id="cb21-463"><a href="#cb21-463" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>Compara PCA de <span class="in">`mtcars`</span> con y sin escalado usando diferentes subconjuntos de variables.</span>
+<span id="cb21-464"><a href="#cb21-464" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>Explica por qué una variable con mucha varianza puede dominar un PCA sin estandarizar.</span>
+<span id="cb21-465"><a href="#cb21-465" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>Simula una nube alargada en dos dimensiones y dibuja sus componentes principales.</span>
+<span id="cb21-466"><a href="#cb21-466" aria-hidden="true" tabindex="-1"></a><span class="ss">5. </span>Verifica en <span class="in">`mtcars`</span> que la suma de autovalores coincide con la traza de la matriz de covarianzas.</span>
+<span id="cb21-467"><a href="#cb21-467" aria-hidden="true" tabindex="-1"></a><span class="ss">6. </span>Explica por qué PCA no tiene por qué encontrar la dirección que mejor separa coches automáticos y manuales.</span>
+</code></pre></div><button title="Copiar al portapapeles" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

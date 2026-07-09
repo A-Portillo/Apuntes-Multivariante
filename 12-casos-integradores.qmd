@@ -1,0 +1,182 @@
+# Casos integradores
+
+```{r}
+#| label: setup
+#| message: false
+library(MASS)
+library(tidyverse)
+library(knitr)
+library(FactoMineR)
+```
+
+## Motivación aplicada
+
+El análisis multivariante no consiste en aplicar una función de R, sino en construir una representación útil de datos complejos. Este capítulo resume cómo elegir técnica según pregunta, variables y objetivo.
+
+## Tabla de decisión
+
+| Pregunta | Tipo de variables | Técnica candidata |
+|---|---|---|
+| ¿Qué individuos se parecen? | Numéricas o mixtas | Distancias + clustering |
+| ¿Puedo resumir variables numéricas en pocos ejes? | Numéricas | PCA |
+| ¿Hay factores latentes? | Numéricas correlacionadas | Análisis factorial |
+| ¿Puedo representar datos mixtos? | Numéricas + categóricas | FAMD |
+| ¿Hay asociación en una tabla? | Dos categóricas | CA |
+| ¿Hay perfiles categóricos? | Varias categóricas | MCA |
+| ¿Puedo predecir una clase conocida? | Numéricas + clase | LDA/QDA |
+
+## Comparación global
+
+Clustering es no supervisado y produce grupos. PCA resume variables numéricas en ejes. Análisis factorial interpreta covarianza común mediante factores latentes. FAMD representa datos mixtos. CA y MCA trabajan con categorías. LDA y QDA son supervisados y predicen clases conocidas.
+
+## Dataset conductor
+
+Para homogeneizar los ejemplos, este capítulo usa `mtcars` como tabla base. La misma información permite plantear preguntas no supervisadas, factoriales, mixtas, categóricas y supervisadas.
+
+```{r}
+mtcars_base <- mtcars |>
+  as_tibble(rownames = "modelo")
+
+mtcars_mixed <- mtcars_base |>
+  mutate(
+    cyl = factor(cyl),
+    vs = factor(vs, labels = c("V", "Straight")),
+    am = factor(am, labels = c("automatico", "manual")),
+    gear = factor(gear),
+    carb = factor(carb)
+  )
+
+vars_num <- mtcars_base |>
+  dplyr::select(mpg, disp, hp, drat, wt, qsec)
+```
+
+## Caso 1: numérico con grupos desconocidos
+
+Pregunta: ¿qué coches se parecen por consumo, cilindrada, potencia, relación del eje, peso y aceleración?
+
+```{r}
+X <- scale(vars_num)
+hc <- hclust(dist(X), method = "ward.D2")
+cl <- cutree(hc, k = 4)
+aggregate(vars_num, by = list(cluster = cl), mean) |>
+  mutate(across(where(is.numeric), function(x) round(x, 1))) |>
+  kable()
+```
+
+Decisión clave: escalar porque las variables tienen unidades y dispersiones distintas.
+
+## Caso 2: numérico con etiqueta externa
+
+Pregunta: ¿los grupos no supervisados se relacionan con la transmisión automática o manual?
+
+```{r}
+set.seed(123)
+km <- kmeans(X, centers = 3, nstart = 25)
+kable(table(cluster = km$cluster, transmision = mtcars_mixed$am))
+```
+
+La etiqueta externa se usa para interpretar, no para construir los clusters.
+
+## Caso 3: reducción de dimensión numérica
+
+Pregunta: ¿podemos resumir las variables numéricas de los coches en pocos ejes?
+
+```{r}
+pca <- prcomp(vars_num, center = TRUE, scale. = TRUE)
+as_tibble(pca$x[, 1:2]) |>
+  mutate(transmision = mtcars_mixed$am) |>
+  ggplot(aes(PC1, PC2, color = transmision)) +
+  geom_point(size = 2.4, alpha = 0.85) +
+  labs(title = "PCA de variables numéricas de mtcars", x = "PC1", y = "PC2", color = "Transmisión") +
+  theme_minimal()
+```
+
+Decisión clave: escalar antes de PCA porque las variables tienen unidades muy distintas.
+
+## Caso 4: dataset mixto
+
+Pregunta: ¿cómo representar coches combinando variables numéricas y categóricas?
+
+```{r}
+famd <- FAMD(mtcars_mixed |> dplyr::select(-modelo), graph = FALSE, ncp = 5)
+
+as_tibble(famd$ind$coord[, 1:2]) |>
+  mutate(transmision = mtcars_mixed$am) |>
+  ggplot(aes(Dim.1, Dim.2, color = transmision)) +
+  geom_point(size = 2.4, alpha = 0.85) +
+  labs(title = "FAMD de mtcars mixto", x = "Dimensión 1", y = "Dimensión 2", color = "Transmisión") +
+  theme_minimal()
+```
+
+Decisión clave: no tratar categorías como si fueran magnitudes continuas.
+
+## Caso 5: variables categóricas
+
+Pregunta: ¿cómo se asocian cilindros y transmisión?
+
+```{r}
+tab_cyl_am <- table(cilindros = mtcars_mixed$cyl, transmision = mtcars_mixed$am)
+kable(tab_cyl_am)
+chisq.test(tab_cyl_am, simulate.p.value = TRUE, B = 10000)
+```
+
+Decisión clave: para variables categóricas interesa comparar perfiles, frecuencias esperadas y desviaciones respecto a independencia. Si algunas frecuencias esperadas son pequeñas, conviene usar una aproximación simulada o una prueba exacta.
+
+## Caso 6: clasificación supervisada
+
+Pregunta: ¿podemos predecir transmisión a partir de variables numéricas del coche?
+
+```{r}
+set.seed(456)
+datos_lda <- mtcars_base |>
+  transmute(
+    transmision = factor(am, labels = c("automatico", "manual")),
+    mpg, disp, hp, drat, wt, qsec
+  )
+
+idx <- unlist(tapply(
+  seq_len(nrow(datos_lda)),
+  datos_lda$transmision,
+  function(i) sample(i, floor(0.7 * length(i)))
+))
+train <- datos_lda[idx, ]
+test <- datos_lda[-idx, ]
+fit <- lda(transmision ~ ., data = train)
+pred <- predict(fit, test)$class
+kable(table(predicho = pred, observado = test$transmision))
+tibble(accuracy = mean(pred == test$transmision)) |>
+  kable(digits = 3)
+```
+
+Decisión clave: evaluar en test para estimar rendimiento predictivo.
+
+## Errores transversales
+
+- Elegir técnica por costumbre y no por pregunta.
+- No distinguir variables activas y suplementarias.
+- Olvidar escalado en distancias y PCA.
+- Interpretar mapas factoriales sin revisar calidad.
+- Presentar resultados no supervisados como clases verdaderas.
+- Evaluar modelos supervisados con error aparente.
+
+## Checklist final
+
+Antes de cerrar un análisis multivariante, revisa:
+
+- qué representa cada fila;
+- qué variables son activas;
+- si el tipo de variable coincide con la técnica;
+- si el escalado está justificado;
+- cómo se eligió el número de grupos, ejes o factores;
+- qué evidencia respalda la interpretación;
+- qué limitaciones deben comunicarse.
+
+## Resumen del capítulo
+
+La técnica adecuada depende de la pregunta y del tipo de variables. Una buena representación multivariante es útil porque simplifica datos complejos sin ocultar las decisiones que la hicieron posible.
+
+## Ejercicios propuestos
+
+1. Elige una nueva pregunta para `mtcars` y justifica si usarías PCA, clustering o FAMD.
+2. Con `mtcars`, construye una tabla de contingencia distinta y explica si esperarías independencia.
+3. Diseña una checklist de cinco puntos para un informe de clasificación supervisada sobre transmisión.

@@ -1,0 +1,144 @@
+# Interpretación de clusters
+
+```{r}
+#| label: setup
+#| message: false
+library(tidyverse)
+library(knitr)
+```
+
+## Motivación aplicada
+
+Obtener etiquetas de cluster es solo el primer paso. Si no sabemos qué caracteriza a cada grupo, el análisis no es comunicable.
+
+::: {.callout-tip}
+Nombrar clusters es una decisión interpretativa; debe estar respaldada por variables que realmente diferencien los grupos.
+:::
+
+## El clustering no termina con etiquetas
+
+Una etiqueta como `cluster 1` no significa nada por sí sola. Hay que describir tamaño, perfil medio, dispersión interna, variables distintivas y relación con etiquetas externas si existen.
+
+```{r}
+set.seed(123)
+vars_mtcars <- mtcars[, c("mpg", "disp", "hp", "wt", "qsec")]
+X <- scale(vars_mtcars)
+cl <- kmeans(X, centers = 3, nstart = 25)$cluster
+kable(table(cl), col.names = c("Cluster", "Frecuencia"))
+```
+
+## Perfil medio de cada cluster
+
+Las medias en variables originales son fáciles de comunicar.
+
+```{r}
+perfiles <- aggregate(vars_mtcars, by = list(cluster = cl), mean)
+perfiles |>
+  mutate(across(where(is.numeric), function(x) round(x, 2))) |>
+  kable()
+```
+
+Si las variables tenían unidades distintas, las medias estandarizadas ayudan a comparar qué rasgos están por encima o por debajo de la media global.
+
+```{r}
+Z <- as.data.frame(scale(vars_mtcars))
+Z$cluster <- factor(cl)
+perfil_z <- aggregate(. ~ cluster, data = Z, mean)
+perfil_z_redondeado <- perfil_z
+perfil_z_redondeado[, -1] <- round(perfil_z_redondeado[, -1], 2)
+kable(perfil_z_redondeado)
+```
+
+## Heatmap de medias estandarizadas
+
+```{r}
+mat <- as.matrix(perfil_z[, -1])
+rownames(mat) <- paste("Cluster", perfil_z$cluster)
+as_tibble(mat, rownames = "cluster") |>
+  pivot_longer(-cluster, names_to = "variable", values_to = "media_estandarizada") |>
+  ggplot(aes(variable, cluster, fill = media_estandarizada)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient2(low = "#4575b4", mid = "white", high = "#d73027", midpoint = 0) +
+  labs(
+    title = "Perfil estandarizado por cluster",
+    x = "Variable",
+    y = "Cluster",
+    fill = "Media z"
+  ) +
+  theme_minimal()
+```
+
+El gráfico resume qué variables diferencian los grupos. Debe leerse junto con tamaños y variabilidad interna.
+
+## Boxplots por cluster
+
+```{r}
+mtcars_cluster <- vars_mtcars
+mtcars_cluster$cluster <- factor(cl)
+ggplot(mtcars_cluster, aes(cluster, mpg, fill = cluster)) +
+  geom_boxplot(alpha = 0.8, show.legend = FALSE) +
+  labs(title = "Distribución por cluster", x = "Cluster", y = "Millas por galón") +
+  theme_minimal()
+```
+
+Los boxplots muestran si la diferencia entre perfiles medios es estable o si hay solapamiento.
+
+## Comparación con etiquetas externas
+
+Cuando existe una etiqueta externa, se puede cruzar con los clusters.
+
+```{r}
+kable(table(cluster = cl, transmision = factor(mtcars$am, labels = c("automatico", "manual"))))
+kable(table(cluster = cl, cilindros = mtcars$cyl))
+```
+
+Esta tabla no valida automáticamente el clustering, pero ayuda a interpretar qué estructura conocida captura.
+
+## Nombrar clusters
+
+Un nombre útil debe ser breve y estar justificado. En `mtcars`, por ejemplo, podríamos hablar de coches ligeros y eficientes frente a coches pesados y potentes si las medias lo sostienen.
+
+```{r}
+aggregate(vars_mtcars, by = list(cluster = cl), mean) |>
+  mutate(across(where(is.numeric), function(x) round(x, 2))) |>
+  kable()
+```
+
+## Estabilidad e incertidumbre
+
+Los clusters pueden cambiar con pequeñas modificaciones: otra semilla, otra selección de variables o una observación atípica. Una comprobación sencilla es repetir k-means con varias semillas y comparar tamaños o tablas cruzadas.
+
+```{r}
+set.seed(1)
+res <- replicate(10, kmeans(X, centers = 3, nstart = 1)$tot.withinss)
+tibble(ejecucion = seq_along(res), tot_withinss = round(res, 1)) |>
+  kable()
+```
+
+## Mini-informe de clustering
+
+Un informe mínimo debería incluir:
+
+- pregunta aplicada;
+- variables activas y motivo de escalado;
+- distancia o algoritmo;
+- criterio para elegir número de clusters;
+- perfil de cada cluster;
+- limitaciones y advertencias.
+
+## Errores frecuentes
+
+- Describir clusters solo con el algoritmo usado.
+- Nombrar grupos a partir de una única variable.
+- Ignorar clusters pequeños.
+- Presentar etiquetas de cluster como clases naturales sin evidencia adicional.
+
+## Resumen del capítulo
+
+Interpretar clusters exige volver a los datos originales, caracterizar perfiles y reconocer incertidumbre. La etiqueta de cluster es una ayuda, no una conclusión completa.
+
+## Ejercicios propuestos
+
+1. Crea un perfil de clusters para `mtcars` usando otro subconjunto de variables.
+2. Construye una tabla cluster por transmisión (`am`) y comenta si ayuda a interpretar los grupos.
+3. Redacta tres nombres posibles para clusters de `mtcars` y justifícalos con medias.

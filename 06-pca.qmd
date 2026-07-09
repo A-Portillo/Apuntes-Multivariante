@@ -1,0 +1,437 @@
+# Análisis de componentes principales
+
+```{r}
+#| label: setup
+#| message: false
+library(tidyverse)
+library(knitr)
+```
+
+## Motivación intuitiva: los datos no llenan todo el espacio
+
+Imaginemos imágenes de dígitos escritos a mano, como las del conjunto MNIST. Si cada imagen tiene $28 \times 28$ píxeles, cada dígito puede representarse como un punto con 784 variables. En principio, el espacio posible es enorme: cualquier combinación de intensidades de píxeles sería un punto válido.
+
+Pero los dígitos reales no ocupan uniformemente ese espacio. La mayoría de combinaciones posibles de píxeles no parecen números. Los dígitos viven cerca de estructuras de dimensión mucho menor: formas con trazos, bucles, picos, inclinaciones, anchuras y curvaturas. Un `0` suele tener un bucle; un `1` suele ser estrecho; un `2` tiene una curva superior y una base; un `8` tiene dos bucles.
+
+Reducir dimensión consiste en encontrar características más informativas que las variables originales. En lugar de describir una imagen píxel a píxel, nos gustaría resumirla mediante ejes que capturen patrones importantes de variación: grosor, inclinación, apertura, presencia de bucles o contraste entre zonas.
+
+PCA hace una versión lineal de esta idea. No descubre bucles de forma semántica como lo haría una persona, pero construye nuevas variables que resumen las direcciones de mayor variabilidad de los datos.
+
+::: {.callout-note}
+PCA rota el sistema de coordenadas para ordenar direcciones de máxima variabilidad, pero no garantiza que esas direcciones sean las más relevantes para cualquier pregunta aplicada.
+:::
+
+## Una imagen geométrica sencilla
+
+Si una nube de puntos en dos dimensiones está alargada, no ocupa todo el plano por igual. Hay una dirección principal donde varía mucho y otra dirección perpendicular donde varía poco. PCA busca esas direcciones.
+
+```{r}
+set.seed(123)
+n <- 120
+z1 <- rnorm(n, sd = 2.5)
+z2 <- rnorm(n, sd = 0.35)
+theta <- pi / 5
+R <- matrix(c(cos(theta), -sin(theta), sin(theta), cos(theta)), nrow = 2)
+X_sim <- cbind(z1, z2) %*% t(R)
+colnames(X_sim) <- c("x1", "x2")
+
+pca_sim <- prcomp(X_sim, center = TRUE, scale. = FALSE)
+componentes_sim <- tibble(
+  componente = c("PC1", "PC2"),
+  x = c(pca_sim$rotation[1, 1] * 4, pca_sim$rotation[1, 2] * 2),
+  y = c(pca_sim$rotation[2, 1] * 4, pca_sim$rotation[2, 2] * 2)
+)
+
+as_tibble(X_sim) |>
+  ggplot(aes(x1, x2)) +
+  geom_point(color = "gray40", alpha = 0.85) +
+  geom_segment(
+    data = componentes_sim,
+    aes(x = 0, y = 0, xend = x, yend = y, color = componente),
+    arrow = grid::arrow(length = grid::unit(0.18, "cm")),
+    linewidth = 1.2,
+    inherit.aes = FALSE
+  ) +
+  coord_equal() +
+  labs(title = "Una nube alargada no llena el plano", x = "x1", y = "x2", color = "Componente") +
+  theme_minimal()
+```
+
+La primera componente apunta en la dirección donde la nube se extiende más. La segunda es perpendicular y recoge la variabilidad restante. Si proyectamos los puntos sobre la primera dirección, perdemos información, pero conservamos gran parte de la estructura.
+
+## Qué hace PCA
+
+PCA construye componentes $Z_1, Z_2, \ldots, Z_p$ como combinaciones lineales de las variables originales:
+
+$$
+Z_m = a_{1m}X_1 + a_{2m}X_2 + \cdots + a_{pm}X_p.
+$$
+
+El vector $a_m=(a_{1m},\ldots,a_{pm})$ contiene las cargas de la componente $m$. Para evitar que la varianza crezca artificialmente solo por multiplicar coeficientes, se exige:
+
+$$
+\lVert a_m \rVert^2 = a_m^\top a_m = 1.
+$$
+
+La primera componente busca la dirección de máxima varianza:
+
+$$
+a_1 = \arg\max_{\lVert a \rVert = 1} Var(Xa).
+$$
+
+La segunda componente busca la mayor varianza posible entre las direcciones ortogonales a la primera. Y así sucesivamente.
+
+## Centrado, escalado y matriz de covarianzas
+
+PCA se aplica normalmente sobre datos centrados. Si $X$ es la matriz de datos, centramos cada variable restando su media. La matriz de covarianzas de los datos centrados es:
+
+$$
+S=\frac{1}{n-1}X^\top X.
+$$
+
+Si las variables tienen unidades distintas, PCA suele hacerse sobre variables estandarizadas. Esto equivale a usar la matriz de correlaciones en lugar de la matriz de covarianzas.
+
+```{r}
+X <- mtcars[, c("mpg", "disp", "hp", "drat", "wt", "qsec")]
+kable(round(cov(X), 2), caption = "Matriz de covarianzas")
+kable(round(cor(X), 2), caption = "Matriz de correlaciones")
+```
+
+La decisión entre covarianzas y correlaciones no es automática. Usar covarianzas conserva las unidades originales; usar correlaciones da el mismo peso inicial a todas las variables estandarizadas.
+
+## Varianza de una componente
+
+Si una componente es $Z = Xa$, su varianza es:
+
+$$
+Var(Z)=Var(Xa)=a^\top S a.
+$$
+
+Por tanto, PCA busca direcciones unitarias $a$ que hagan grande $a^\top S a$. Las soluciones son los autovectores de $S$, y las varianzas explicadas son los autovalores asociados.
+
+No necesitamos desarrollar aquí toda la demostración algebraica. La idea importante es esta: la matriz $S$ describe cómo varían conjuntamente las variables; sus autovectores señalan direcciones especiales de variación; sus autovalores miden cuánta varianza hay en esas direcciones.
+
+```{r}
+Xsc <- scale(X)
+S <- cov(Xsc)
+eig <- eigen(S)
+tibble(componente = paste0("PC", seq_along(eig$values)), autovalor = round(eig$values, 3)) |>
+  kable()
+kable(round(eig$vectors, 3), caption = "Autovectores")
+```
+
+## Por qué las componentes son ortogonales
+
+Las componentes principales están construidas para ser ortogonales entre sí. Si $a_r$ y $a_s$ son dos vectores de carga asociados a autovalores distintos $\lambda_r$ y $\lambda_s$, entonces:
+
+$$
+S a_r = \lambda_r a_r,
+$$
+
+$$
+S a_s = \lambda_s a_s.
+$$
+
+Como $S$ es simétrica, se cumple que $a_s^\top S a_r = a_r^\top S a_s$. Sustituyendo:
+
+$$
+\lambda_r a_s^\top a_r = \lambda_s a_r^\top a_s.
+$$
+
+Como $a_s^\top a_r = a_r^\top a_s$, queda:
+
+$$
+(\lambda_r-\lambda_s)a_r^\top a_s=0.
+$$
+
+Si los autovalores son diferentes, $\lambda_r \neq \lambda_s$, entonces necesariamente:
+
+$$
+a_r^\top a_s=0.
+$$
+
+Es decir, las direcciones son ortogonales. Esta ortogonalidad significa que PCA evita repetir la misma dirección de variabilidad: cada componente añade una dirección nueva, perpendicular a las anteriores.
+
+::: {.callout-note}
+Cuando hay autovalores iguales, la dirección exacta dentro del subespacio asociado puede no ser única. En aplicaciones introductorias, lo importante es que el subespacio retenido sigue representando la misma variabilidad.
+:::
+
+## Varianza total y traza
+
+La varianza total de un conjunto de variables centradas se define como la suma de las varianzas de las variables originales:
+
+$$
+Var_{total} = Var(X_1)+\cdots+Var(X_p).
+$$
+
+En la matriz de covarianzas, esas varianzas están en la diagonal. Por tanto:
+
+$$
+Var_{total} = tr(S).
+$$
+
+La traza de una matriz cuadrada es la suma de su diagonal. En PCA, las componentes principales equivalen a rotar el sistema de coordenadas mediante una matriz ortogonal de cargas $A$. La matriz de covarianzas de las componentes es:
+
+$$
+S_Z = A^\top S A.
+$$
+
+Como $A$ es una rotación ortogonal, no estira ni comprime el espacio; solo cambia los ejes. La varianza total se conserva:
+
+$$
+tr(S_Z)=tr(A^\top S A)=tr(S).
+$$
+
+Además, en los ejes principales, la matriz $S_Z$ queda diagonal y sus entradas diagonales son los autovalores:
+
+$$
+tr(S)=\lambda_1+\lambda_2+\cdots+\lambda_p.
+$$
+
+Por eso podemos hablar de proporción de varianza explicada por la componente $m$:
+
+$$
+\frac{\lambda_m}{\lambda_1+\cdots+\lambda_p}.
+$$
+
+```{r}
+var_total_original <- sum(diag(S))
+var_total_componentes <- sum(eig$values)
+c(
+  traza_covarianzas = var_total_original,
+  suma_autovalores = var_total_componentes
+) |>
+  as.list() |>
+  as_tibble() |>
+  kable()
+```
+
+La igualdad numérica confirma la idea: PCA redistribuye la misma varianza total entre ejes nuevos ordenados de mayor a menor importancia.
+
+## PCA con `prcomp()`
+
+En R, `prcomp()` calcula PCA de forma estable. Con `scale. = TRUE` usamos variables estandarizadas.
+
+```{r}
+pca_mtcars <- prcomp(X, center = TRUE, scale. = TRUE)
+kable(summary(pca_mtcars)$importance, digits = 3)
+kable(round(pca_mtcars$rotation, 3), caption = "Cargas")
+```
+
+Los elementos principales del resultado son:
+
+- `rotation`: cargas o direcciones de las componentes;
+- `x`: scores, coordenadas de los individuos;
+- `sdev`: desviaciones típicas de las componentes;
+- `sdev^2`: varianzas explicadas.
+
+## Scores y loadings
+
+Los **loadings** indican cómo se construye cada componente a partir de las variables originales. Los **scores** son las coordenadas de cada individuo en el nuevo sistema.
+
+Si $A$ es la matriz de cargas, los scores se obtienen como:
+
+$$
+Z = X A.
+$$
+
+En datos centrados y escalados, `prcomp()` aplica esa transformación internamente.
+
+```{r}
+scores <- as.data.frame(pca_mtcars$x)
+head(round(scores[, 1:2], 2)) |>
+  kable()
+```
+
+## Varianza explicada y scree plot
+
+```{r}
+var_exp <- pca_mtcars$sdev^2 / sum(pca_mtcars$sdev^2)
+tibble(
+  componente = factor(paste0("PC", seq_along(var_exp)), levels = paste0("PC", seq_along(var_exp))),
+  varianza = var_exp
+) |>
+  ggplot(aes(componente, varianza, group = 1)) +
+  geom_col(fill = "#4c78a8", alpha = 0.8) +
+  geom_line(color = "#222222") +
+  geom_point(size = 2) +
+  labs(title = "Varianza explicada", x = "Componente", y = "Proporción de varianza") +
+  theme_minimal()
+tibble(componente = paste0("PC", seq_along(var_exp)), acumulada = round(cumsum(var_exp), 3)) |>
+  kable()
+```
+
+El número de componentes no debe elegirse solo por una regla mecánica. Hay que combinar:
+
+- proporción de varianza explicada;
+- forma del scree plot;
+- interpretabilidad de los ejes;
+- objetivo posterior del análisis;
+- coste de perder información.
+
+## Interpretación de individuos
+
+```{r}
+scores |>
+  mutate(transmision = factor(mtcars$am, labels = c("automatico", "manual"))) |>
+  ggplot(aes(PC1, PC2, color = transmision)) +
+  geom_point(size = 2, alpha = 0.85) +
+  labs(title = "Individuos en el plano PCA", color = "Transmisión") +
+  theme_minimal()
+```
+
+Los puntos cercanos tienen perfiles parecidos en las variables activas, siempre dentro de la calidad de representación del plano mostrado. Si los dos primeros componentes explican poca varianza, las proximidades del plano pueden ser engañosas.
+
+## Interpretación de variables
+
+Las cargas indican qué variables contribuyen a cada eje.
+
+```{r}
+load <- pca_mtcars$rotation[, 1:2]
+as_tibble(load, rownames = "variable") |>
+  ggplot(aes(PC1, PC2, label = variable)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray60") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray60") +
+  geom_segment(aes(x = 0, y = 0, xend = PC1, yend = PC2), arrow = grid::arrow(length = grid::unit(0.15, "cm"))) +
+  geom_text(nudge_y = 0.05) +
+  coord_equal(xlim = c(-1, 1), ylim = c(-1, 1)) +
+  labs(title = "Cargas de variables") +
+  theme_minimal()
+```
+
+Variables con flechas próximas tienden a estar correlacionadas. Flechas opuestas sugieren asociación negativa. Flechas casi perpendiculares sugieren asociación lineal débil en el plano representado.
+
+El signo de una componente es arbitrario: si multiplicamos todas sus cargas y scores por $-1$, la información no cambia. Por eso no debe interpretarse el signo de forma aislada, sino la oposición entre variables y la posición relativa de individuos.
+
+## Biplot, contribuciones y cos²
+
+```{r}
+biplot_scores <- scores |>
+  mutate(transmision = factor(mtcars$am, labels = c("automatico", "manual")))
+biplot_loadings <- as_tibble(load, rownames = "variable") |>
+  mutate(PC1 = PC1 * max(abs(biplot_scores$PC1)), PC2 = PC2 * max(abs(biplot_scores$PC2)))
+
+ggplot(biplot_scores, aes(PC1, PC2, color = transmision)) +
+  geom_point(alpha = 0.65) +
+  geom_segment(
+    data = biplot_loadings,
+    aes(x = 0, y = 0, xend = PC1, yend = PC2),
+    inherit.aes = FALSE,
+    arrow = grid::arrow(length = grid::unit(0.15, "cm")),
+    color = "black"
+  ) +
+  geom_text(
+    data = biplot_loadings,
+    aes(PC1, PC2, label = variable),
+    inherit.aes = FALSE,
+    nudge_y = 0.2
+  ) +
+  labs(title = "Biplot PCA de mtcars", color = "Transmisión") +
+  theme_minimal()
+```
+
+El cos² mide calidad de representación de un punto o variable en los ejes retenidos. Para una variable, un cos² alto en el plano PC1-PC2 indica que la variable está bien representada en ese plano.
+
+```{r}
+coord_var <- pca_mtcars$rotation[, 1:2]
+cos2_var <- coord_var^2
+kable(round(cos2_var, 3))
+```
+
+Las contribuciones indican cuánto aporta cada variable o individuo a la construcción de un eje. Una variable puede estar bien representada y, además, contribuir mucho a una componente; ambas ideas están relacionadas, pero no son idénticas.
+
+## PCA sobre covarianzas frente a correlaciones
+
+Veamos `mtcars`. Las variables tienen escalas diferentes, así que el PCA sin escalar queda dominado por variables con mayor varianza.
+
+```{r}
+pca_us_cov <- prcomp(X, center = TRUE, scale. = FALSE)
+pca_us_cor <- prcomp(X, center = TRUE, scale. = TRUE)
+
+tibble(
+  componente = colnames(summary(pca_us_cov)$importance),
+  covarianzas = round(summary(pca_us_cov)$importance[2, ], 3),
+  correlaciones = round(summary(pca_us_cor)$importance[2, ], 3)
+) |>
+  kable(caption = "Varianza explicada")
+tibble(
+  variable = names(pca_us_cov$rotation[, 1]),
+  covarianzas = round(pca_us_cov$rotation[, 1], 3),
+  correlaciones = round(pca_us_cor$rotation[, 1], 3)
+) |>
+  kable(caption = "Cargas de PC1")
+```
+
+La diferencia no es un error de R: responde a dos preguntas distintas. Sin escalar, las variables con mayor dispersión en sus unidades originales tienen más influencia. Con escalado, todas parten con varianza 1.
+
+## PCA como reducción de dimensión
+
+Si retenemos solo las primeras $q$ componentes, con $q < p$, aproximamos los datos mediante:
+
+$$
+X \approx Z_q A_q^\top.
+$$
+
+Esta aproximación conserva la parte de la variabilidad asociada a los mayores autovalores y descarta direcciones de menor varianza. En contextos como imágenes, esto puede verse como una compresión lineal: no guardamos todos los píxeles, sino unas pocas coordenadas que resumen patrones dominantes.
+
+```{r}
+X_mtcars_scaled <- scale(X)
+pca_mtcars_full <- prcomp(X_mtcars_scaled, center = FALSE, scale. = FALSE)
+X_aprox_2 <- pca_mtcars_full$x[, 1:2] %*% t(pca_mtcars_full$rotation[, 1:2])
+error_medio <- mean((X_mtcars_scaled - X_aprox_2)^2)
+tibble(error_medio = round(error_medio, 4)) |>
+  kable()
+```
+
+El error de reconstrucción baja al retener más componentes, pero la representación se vuelve menos simple.
+
+## PCA como preprocesamiento
+
+PCA puede usarse antes de clustering o clasificación para reducir ruido y colinealidad. Esa reducción también puede eliminar información relevante, por lo que debe justificarse.
+
+```{r}
+set.seed(123)
+cl_pca <- kmeans(pca_mtcars$x[, 1:2], centers = 3, nstart = 25)
+kable(table(cluster = cl_pca$cluster, transmision = factor(mtcars$am, labels = c("automatico", "manual"))))
+```
+
+Aquí usamos solo dos componentes. En `mtcars` puede ayudar a construir grupos de coches, pero las direcciones de máxima varianza no tienen por qué coincidir con las direcciones que separan mejor una etiqueta externa como `am`.
+
+## Limitaciones
+
+PCA tiene varias limitaciones:
+
+- es lineal;
+- está pensado para variables numéricas;
+- maximiza varianza, no separación de grupos ni capacidad predictiva;
+- puede ser sensible a outliers;
+- las componentes pueden ser difíciles de interpretar;
+- una dimensión de baja varianza puede ser importante para una pregunta concreta;
+- los ejes cambian si cambiamos escalado, variables activas o población analizada.
+
+::: {.callout-warning}
+Que una componente explique mucha varianza no implica que sea causal, estable ni sustantivamente importante.
+:::
+
+## Errores frecuentes
+
+- Aplicar PCA sin centrar los datos.
+- No escalar variables con unidades muy diferentes.
+- Interpretar el plano PC1-PC2 sin revisar varianza explicada.
+- Creer que las componentes tienen interpretación única y objetiva.
+- Confundir PCA con análisis factorial latente.
+- Usar PCA para separar clases y olvidar que PCA no usa la etiqueta.
+- Interpretar el signo de una componente como si fuera absoluto.
+
+## Resumen del capítulo
+
+PCA parte de una idea geométrica: los datos suelen vivir cerca de estructuras de menor dimensión que el espacio original. Construye componentes como combinaciones lineales ortogonales que ordenan la varianza. La varianza total se conserva porque PCA rota los ejes y la varianza total es la traza de la matriz de covarianzas. Interpretar PCA exige revisar escalado, varianza explicada, cargas, scores, cos² y el objetivo aplicado.
+
+## Ejercicios propuestos
+
+1. Aplica PCA a `mtcars` con escalado y comenta los dos primeros componentes.
+2. Compara PCA de `mtcars` con y sin escalado usando diferentes subconjuntos de variables.
+3. Explica por qué una variable con mucha varianza puede dominar un PCA sin estandarizar.
+4. Simula una nube alargada en dos dimensiones y dibuja sus componentes principales.
+5. Verifica en `mtcars` que la suma de autovalores coincide con la traza de la matriz de covarianzas.
+6. Explica por qué PCA no tiene por qué encontrar la dirección que mejor separa coches automáticos y manuales.

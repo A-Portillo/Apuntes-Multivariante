@@ -1,0 +1,370 @@
+# FAMD para datos mixtos
+
+```{r}
+#| label: setup
+#| message: false
+library(tidyverse)
+library(knitr)
+```
+
+## Motivación aplicada
+
+Después de estudiar PCA y MCA ya tenemos dos geometrías claras:
+
+- PCA resume variables numéricas mediante ejes de máxima varianza;
+- MCA representa variables categóricas mediante tablas indicadoras, masas, distancia $\chi^2$ e inercia.
+
+El problema práctico aparece cuando una misma tabla tiene ambos tipos de variables. En `mtcars`, consumo, potencia y peso son numéricos, mientras que cilindros, tipo de motor, transmisión o número de marchas pueden tratarse como categorías.
+
+Si queremos representar coches en un único mapa factorial, no basta con aplicar PCA a todo ni con aplicar MCA solo a las variables categóricas. FAMD combina las dos lógicas en una geometría común.
+
+::: {.callout-note}
+FAMD puede verse como una extensión de PCA y MCA: usa la estandarización de variables numéricas y la geometría ponderada de modalidades categóricas para construir ejes comunes de inercia.
+:::
+
+## Qué problema resuelve FAMD
+
+FAMD, análisis factorial de datos mixtos, responde a preguntas como:
+
+- ¿qué individuos se parecen cuando algunos rasgos son numéricos y otros categóricos?
+- ¿qué dimensiones resumen conjuntamente medidas y modalidades?
+- ¿qué variables numéricas y qué categorías construyen cada eje?
+- ¿podemos usar las coordenadas factoriales para clustering posterior?
+
+El reto es equilibrar fuentes de información heterogéneas. Una diferencia de 50 caballos de potencia no se compara directamente con cambiar de transmisión automática a manual. Además, una variable categórica con muchas modalidades genera muchas columnas indicadoras y podría pesar más que una variable con pocas modalidades si no se corrige.
+
+## Dataset `mtcars_mixed`
+
+Construimos una versión mixta de `mtcars`. Algunas variables discretas se tratan como factores porque representan categorías técnicas.
+
+```{r}
+mtcars_mixed <- mtcars
+mtcars_mixed$cyl <- factor(mtcars_mixed$cyl)
+mtcars_mixed$vs <- factor(mtcars_mixed$vs, labels = c("V", "Straight"))
+mtcars_mixed$am <- factor(mtcars_mixed$am, labels = c("automatico", "manual"))
+mtcars_mixed$gear <- factor(mtcars_mixed$gear)
+mtcars_mixed$carb <- factor(mtcars_mixed$carb)
+tibble(
+  variable = names(mtcars_mixed),
+  clase = sapply(mtcars_mixed, function(x) class(x)[1])
+) |>
+  kable()
+```
+
+La decisión de tratar `cyl`, `gear` o `carb` como factores no es automática. En otro análisis podríamos tratarlas como ordinales o numéricas discretas. La codificación debe responder a la pregunta aplicada.
+
+## De PCA y MCA a FAMD
+
+Recordemos las dos piezas:
+
+- en PCA, cada variable numérica se centra y normalmente se escala;
+- en MCA, cada variable categórica se transforma en columnas indicadoras, y las modalidades se ponderan según sus masas.
+
+FAMD construye una matriz transformada que contiene ambos bloques. Después aplica una descomposición factorial sobre esa matriz. La inercia de los ejes resume variabilidad numérica y asociaciones categóricas en una misma escala.
+
+La idea no es que cada columna transformada pese igual, sino que cada **variable original** tenga una influencia comparable. Esto es crucial: una variable categórica con seis modalidades no debería pesar seis veces más que una variable binaria solo porque genera más columnas.
+
+## Bloque numérico
+
+Para una variable numérica $X_j$, FAMD usa la versión centrada y escalada:
+
+$$
+z_{ij}=\frac{x_{ij}-\bar{x}_j}{s_j}.
+$$
+
+Así, cada variable numérica parte con media 0 y varianza 1. En términos de inercia, cada variable numérica activa aporta inicialmente una unidad de variabilidad comparable.
+
+Si una variable numérica es muy asimétrica, puede convenir transformarla antes. FAMD no sustituye el diagnóstico de variables.
+
+## Bloque categórico
+
+Para una variable categórica $Y_j$ con modalidades $1,\ldots,L_j$, construimos columnas indicadoras:
+
+$$
+g_{i\ell} =
+\begin{cases}
+1, & \text{si el individuo } i \text{ pertenece a la modalidad } \ell,\\
+0, & \text{en otro caso.}
+\end{cases}
+$$
+
+La masa de la modalidad $\ell$ es:
+
+$$
+p_\ell=\frac{n_\ell}{n}.
+$$
+
+Como en MCA, las modalidades no se tratan como columnas ordinarias. Se centran respecto a su frecuencia y se ponderan por su masa. Una forma intuitiva de escribir la columna transformada es:
+
+$$
+\tilde{g}_{i\ell}=\frac{g_{i\ell}-p_\ell}{\sqrt{p_\ell}}.
+$$
+
+Esta transformación conecta con la distancia $\chi^2$: diferir en modalidades raras puede pesar más que diferir en modalidades muy frecuentes.
+
+::: {.callout-warning}
+Que una modalidad rara aparezca lejos del origen no significa automáticamente que sea sustantivamente importante. Primero hay que mirar su masa, contribución y cos².
+:::
+
+## Equilibrio por bloques
+
+Si concatenamos todas las columnas $\tilde{g}_{i\ell}$ sin más, una variable con muchas modalidades puede dominar. Por eso FAMD pondera el bloque de cada variable categórica para que su peso global sea comparable al de una variable numérica activa.
+
+De forma esquemática, la matriz de trabajo puede pensarse como:
+
+$$
+X^* = [Z_{num} \mid Z_{cat}],
+$$
+
+donde $Z_{num}$ contiene variables numéricas estandarizadas y $Z_{cat}$ contiene indicadores centrados y ponderados por masas y bloques.
+
+FAMD aplica una descomposición tipo PCA sobre $X^*$, pero la interpretación aprovecha lo aprendido en MCA: masas, inercia, contribuciones, cos² y modalidades.
+
+## Distancia mixta inducida
+
+FAMD induce una noción de distancia entre individuos que suma información numérica y categórica.
+
+Para la parte numérica:
+
+$$
+d^2_{num}(i,i')=\sum_{j \in Q}\left(\frac{x_{ij}-x_{i'j}}{s_j}\right)^2.
+$$
+
+Para la parte categórica, la diferencia depende de las modalidades y de sus masas, de forma análoga a MCA:
+
+$$
+d^2_{cat}(i,i') \approx \sum_{\ell \in M}\frac{1}{p_\ell}(g_{i\ell}-g_{i'\ell})^2,
+$$
+
+con ponderaciones adicionales para equilibrar variables. En conjunto:
+
+$$
+d^2(i,i')=d^2_{num}(i,i')+d^2_{cat}(i,i').
+$$
+
+La fórmula exacta depende de la normalización implementada, pero la lectura es clara: dos individuos son próximos si tienen valores numéricos parecidos y perfiles categóricos parecidos, considerando escalas y masas.
+
+## Variables activas y suplementarias
+
+Las variables activas construyen los ejes. Las suplementarias se proyectan después para ayudar a interpretar.
+
+Por ejemplo, podríamos usar `am` como suplementaria si queremos ver cómo se distribuye la transmisión sin que defina los ejes. Si `am` entra como activa, los ejes pueden organizarse en parte alrededor de la diferencia automático/manual.
+
+Esta distinción es especialmente útil en FAMD porque una variable categórica activa puede tener un efecto fuerte en la geometría si sus modalidades separan bien a los individuos.
+
+## Ejecución con FactoMineR si está disponible
+
+`FactoMineR::FAMD()` implementa el método completo y devuelve coordenadas, contribuciones, cos² e inercia explicada.
+
+```{r}
+famd <- FactoMineR::FAMD(mtcars_mixed, graph = FALSE, ncp = 5)
+kable(famd$eig, digits = 3)
+```
+
+La tabla de autovalores se interpreta como en PCA/MCA: cada dimensión explica una parte de la inercia total.
+
+## Aproximación reproducible con base R
+
+El siguiente código no sustituye a una implementación completa de FAMD, pero ilustra la construcción de una matriz mixta equilibrada antes de aplicar una descomposición tipo PCA.
+
+```{r}
+num <- mtcars_mixed[sapply(mtcars_mixed, is.numeric)]
+cat_vars <- mtcars_mixed[sapply(mtcars_mixed, is.factor)]
+
+Xnum <- scale(num)
+dummy_blocks <- lapply(names(cat_vars), function(v) {
+  mm <- model.matrix(~ x - 1, data = data.frame(x = cat_vars[[v]]))
+  frec <- colMeans(mm)
+  mm_centered <- sweep(mm, 2, frec, "-")
+  mm_weighted <- sweep(mm_centered, 2, sqrt(frec), "/")
+  colnames(mm_weighted) <- paste(v, levels(cat_vars[[v]]), sep = "_")
+  mm_weighted / sqrt(ncol(mm_weighted))
+})
+Xcat <- do.call(cbind, dummy_blocks)
+Xmix <- cbind(Xnum, Xcat)
+
+pca_mix <- prcomp(Xmix, center = FALSE, scale. = FALSE)
+kable(round(summary(pca_mix)$importance[, 1:5], 3))
+```
+
+El código hace tres cosas: estandariza variables numéricas, convierte factores en indicadores centrados y ponderados, y aplica PCA a la matriz transformada. La ponderación por bloques evita que una variable con muchas modalidades domine automáticamente.
+
+## Coordenadas de individuos
+
+Las coordenadas de individuos son sus posiciones en los ejes mixtos.
+
+```{r}
+coords <- as.data.frame(pca_mix$x[, 1:2])
+coords |>
+  mutate(modelo = rownames(mtcars), transmision = mtcars_mixed$am) |>
+  ggplot(aes(PC1, PC2, color = transmision, label = modelo)) +
+  geom_point(size = 2.4, alpha = 0.85) +
+  geom_text(nudge_y = 0.15, size = 2.8, show.legend = FALSE) +
+  labs(title = "Representación mixta de mtcars", x = "Dimensión 1", y = "Dimensión 2", color = "Transmisión") +
+  theme_minimal()
+```
+
+Dos coches cercanos en este plano tienen perfiles parecidos combinando variables numéricas y categorías activas. Como en MCA, la cercanía debe interpretarse junto con la inercia explicada y la calidad de representación.
+
+## Interpretación de variables numéricas
+
+Las variables numéricas se interpretan mediante su relación con los ejes. En una implementación completa se usan correlaciones variable-dimensión.
+
+```{r}
+cargas_num <- pca_mix$rotation[colnames(Xnum), 1:2]
+kable(round(cargas_num, 3))
+```
+
+Una carga alta en valor absoluto indica que la variable contribuye a ordenar individuos en esa dimensión. El signo debe interpretarse de forma relativa: cambiar el signo completo de un eje no cambia el análisis.
+
+## Interpretación de variables categóricas
+
+Para variables categóricas, una herramienta útil es la razón de correlación, o $\eta^2$, entre una variable categórica $Y$ y una dimensión factorial $Z_m$:
+
+$$
+\eta^2(Y,Z_m)=
+\frac{\sum_{\ell} \frac{n_\ell}{n}(\bar{z}_{\ell m}-\bar{z}_m)^2}
+{Var(Z_m)}.
+$$
+
+Aquí $\bar{z}_{\ell m}$ es la media de la dimensión $m$ entre individuos de la modalidad $\ell$. Si $\eta^2$ es alto, la variable categórica separa bien a los individuos a lo largo de esa dimensión.
+
+```{r}
+eta2 <- function(y, z) {
+  medias <- tapply(z, y, mean)
+  pesos <- prop.table(table(y))
+  sum(pesos * (medias - mean(z))^2) / var(z)
+}
+
+eta_cat <- sapply(cat_vars, function(y) c(Dim1 = eta2(y, pca_mix$x[, 1]), Dim2 = eta2(y, pca_mix$x[, 2])))
+kable(round(t(eta_cat), 3))
+```
+
+Las modalidades concretas se interpretan por su posición y contribución. Una modalidad alejada puede caracterizar una región del mapa, pero solo si tiene suficiente masa y buena calidad de representación.
+
+```{r}
+cargas_cat <- pca_mix$rotation[colnames(Xcat), 1:2]
+kable(round(cargas_cat[1:min(10, nrow(cargas_cat)), ], 3))
+```
+
+```{r}
+frecuencias_cat <- unlist(lapply(cat_vars, function(x) prop.table(table(x))))
+tibble(categoria = names(frecuencias_cat), frecuencia = round(as.numeric(frecuencias_cat), 3)) |>
+  kable()
+```
+
+## Contribuciones y cos²
+
+Como en PCA y MCA, interesa distinguir contribución y calidad de representación.
+
+Para una columna transformada $v$ y una dimensión $m$, una contribución simplificada puede calcularse como:
+
+$$
+ctr_{vm} = \frac{loading_{vm}^2}{\sum_v loading_{vm}^2}.
+$$
+
+```{r}
+contrib_dim1 <- pca_mix$rotation[, 1]^2 / sum(pca_mix$rotation[, 1]^2)
+tibble(variable = names(contrib_dim1), contribucion = round(contrib_dim1, 3)) |>
+  arrange(desc(contribucion)) |>
+  slice_head(n = 10) |>
+  kable()
+```
+
+En FAMD formal, las contribuciones respetan masas y pesos. La lógica interpretativa es la misma que en MCA: una categoría puede estar lejos, pero si contribuye poco o está mal representada, no debe dominar la lectura.
+
+## Visualización conjunta
+
+Una visualización conjunta puede mostrar individuos y categorías. Con base R hacemos una versión sencilla con las categorías más asociadas a las dos primeras dimensiones.
+
+```{r}
+cat_norma <- rowSums(cargas_cat^2)
+destacadas <- names(sort(cat_norma, decreasing = TRUE))[1:6]
+coords |>
+  mutate(modelo = rownames(mtcars)) |>
+  ggplot(aes(PC1, PC2)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray60") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray60") +
+  geom_point(color = "gray55", size = 2, alpha = 0.8) +
+  geom_text(aes(label = modelo), nudge_y = 0.15, size = 2.6, color = "gray30") +
+  geom_point(
+    data = as_tibble(cargas_cat[destacadas, 1:2] * 4, rownames = "categoria"),
+    aes(PC1, PC2),
+    inherit.aes = FALSE,
+    shape = 17,
+    color = "#d73027",
+    size = 3
+  ) +
+  geom_text(
+    data = as_tibble(cargas_cat[destacadas, 1:2] * 4, rownames = "categoria"),
+    aes(PC1, PC2, label = categoria),
+    inherit.aes = FALSE,
+    nudge_y = 0.2,
+    color = "#d73027",
+    size = 3
+  ) +
+  labs(title = "Individuos y categorías destacadas", x = "Dimensión 1", y = "Dimensión 2") +
+  theme_minimal()
+```
+
+Esta figura es orientativa. En informes formales conviene usar herramientas específicas de FAMD cuando estén disponibles, porque respetan mejor pesos, contribuciones y cos².
+
+## FAMD y clustering posterior
+
+Las coordenadas factoriales pueden usarse como entrada para clustering. Esto suele reducir ruido y permite combinar variables mixtas en una representación común.
+
+```{r}
+set.seed(123)
+cl <- kmeans(pca_mix$x[, 1:4], centers = 3, nstart = 25)$cluster
+kable(table(cluster = cl, transmision = mtcars_mixed$am))
+```
+
+Después del clustering hay que volver a las variables originales para caracterizar grupos.
+
+```{r}
+aggregate(num, by = list(cluster = cl), mean) |>
+  kable(digits = 2)
+kable(table(cluster = cl, cilindros = mtcars_mixed$cyl))
+```
+
+## Relación con PCA, MCA y Gower
+
+FAMD toma de PCA la idea de ejes de máxima inercia para variables numéricas estandarizadas. Toma de MCA la representación de modalidades, masas, distancia $\chi^2$, contribuciones y cos². Se relaciona con Gower porque ambas estrategias comparan individuos con datos mixtos.
+
+La diferencia es que Gower se centra en una matriz de disimilitudes, útil para clustering. FAMD construye ejes factoriales, útiles para visualizar, interpretar variables y luego, si se desea, hacer clustering sobre coordenadas.
+
+## Limitaciones
+
+FAMD no elimina la necesidad de seleccionar variables. Categorías raras, variables redundantes o codificaciones poco justificadas pueden distorsionar los ejes.
+
+Limitaciones concretas:
+
+- las categorías raras pueden quedar sobrerrepresentadas;
+- variables categóricas con muchas modalidades requieren revisión;
+- variables numéricas muy asimétricas pueden necesitar transformación;
+- los ejes son lineales en el espacio transformado;
+- la interpretación depende de qué variables fueron activas;
+- con pocas observaciones, los mapas pueden ser inestables.
+
+## Errores frecuentes
+
+- Convertir factores en números y aplicar PCA.
+- Incluir demasiadas categorías raras.
+- Interpretar categorías alejadas sin revisar frecuencia, contribución y cos².
+- Usar FAMD como caja negra antes de definir variables activas.
+- Confundir variables suplementarias con variables activas.
+- Hacer clustering sobre dimensiones sin revisar cuánta inercia explican.
+- Nombrar ejes solo por una categoría llamativa y no por el conjunto de contribuciones.
+
+## Resumen del capítulo
+
+FAMD ofrece una representación factorial para datos mixtos. Estandariza variables numéricas, transforma variables categóricas siguiendo la lógica de MCA y construye ejes comunes de inercia. Su utilidad depende de equilibrar bloques, distinguir variables activas y suplementarias, revisar frecuencias de categorías e interpretar coordenadas con contribuciones y cos².
+
+## Ejercicios propuestos
+
+1. Repite el análisis dejando `am` fuera de las variables activas y úsala solo para colorear.
+2. Identifica qué categorías de `mtcars_mixed` tienen pocos casos.
+3. Aplica clustering a las primeras dimensiones y describe los grupos.
+4. Compara una distancia de Gower con clustering sobre coordenadas FAMD.
+5. Explica por qué una variable categórica con muchas modalidades puede dominar si no se pondera.
+6. Propón qué variables de un dataset musical serían numéricas, categóricas, activas y suplementarias.
